@@ -8,17 +8,32 @@
   }
 }
 
+/* Dark mode as default - Base styles */
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family:
+    "Outfit",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
     sans-serif;
-  @apply bg-bg-dark text-primary antialiased;
+  @apply bg-dark-bg text-dark-text antialiased;
 }
 
-/* Redefined Glass Panel to look like an Enterprise Medical Card */
+/* Light mode overrides */
+body:not(.dark) {
+  @apply bg-slate-50 text-slate-900;
+}
+
+/* Glass Panel - Dark mode default */
 .glass-panel {
-  @apply bg-white border border-slate-200 shadow-sm rounded-xl;
+  @apply bg-dark-card border border-dark-border shadow-lg rounded-xl;
+}
+
+/* Light mode glass panel */
+body:not(.dark) .glass-panel {
+  @apply bg-white border-slate-200 shadow-sm;
 }
 
 .eth-border-top {
@@ -27,6 +42,62 @@ body {
   background-origin: border-box;
 }
 
+/* Enhanced button base styles with hover effects */
 button {
-  @apply cursor-pointer border-none rounded-lg font-semibold transition-all duration-200 bg-eth-yellow text-white py-2 px-4 shadow-sm hover:translate-y-[-1px] hover:shadow-md active:translate-y-[1px];
+  @apply cursor-pointer border-none rounded-lg font-semibold transition-all duration-300;
+}
+
+/* Custom Button Variants */
+.btn-primary {
+  @apply bg-eth-green text-white px-5 py-2.5 rounded-lg font-bold shadow-md hover:shadow-glow-hover hover:-translate-y-0.5 active:translate-y-0;
+}
+
+.btn-secondary {
+  @apply bg-eth-yellow text-white px-5 py-2.5 rounded-lg font-bold shadow-md hover:shadow-glow-yellow hover:-translate-y-0.5 active:translate-y-0;
+}
+
+.btn-danger {
+  @apply bg-red-600/80 text-white px-4 py-2 rounded-lg font-semibold shadow-sm hover:bg-red-500 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0;
+}
+
+.btn-ghost {
+  @apply bg-transparent text-dark-text px-4 py-2 rounded-lg font-medium hover:bg-dark-surface hover:-translate-y-0.5 active:translate-y-0;
+}
+
+/* Light mode button variants */
+body:not(.dark) .btn-primary {
+  @apply bg-eth-green text-white;
+}
+
+body:not(.dark) .btn-secondary {
+  @apply bg-eth-yellow text-white;
+}
+
+body:not(.dark) .btn-ghost {
+  @apply text-slate-900 hover:bg-slate-100;
+}
+
+/* Form inputs dark mode */
+input,
+textarea,
+select {
+  @apply bg-dark-surface border border-dark-border text-dark-text rounded-lg px-3 py-2 transition-colors;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  @apply outline-none border-eth-green shadow-glow;
+}
+
+body:not(.dark) input,
+body:not(.dark) textarea,
+body:not(.dark) select {
+  @apply bg-slate-50 border-slate-300 text-slate-900;
+}
+
+body:not(.dark) input:focus,
+body:not(.dark) textarea:focus,
+body:not(.dark) select:focus {
+  @apply border-eth-green;
 }

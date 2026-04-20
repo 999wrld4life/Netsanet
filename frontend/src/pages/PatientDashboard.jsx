@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
-import { deriveKeyFromWallet, exportKeyToBase64 } from '../utils/encryption';
-import PatientRegistration from '../components/PatientRegistration';
-import QRCodeDisplay from '../components/QRCodeDisplay';
-import AccessManager from '../components/AccessManager';
-import MedicalTimeline from '../components/MedicalTimeline';
+import { useState, useEffect } from "react";
+import { deriveKeyFromWallet, exportKeyToBase64 } from "../utils/encryption";
+import PatientRegistration from "../components/PatientRegistration";
+import QRCodeDisplay from "../components/QRCodeDisplay";
+import AccessManager from "../components/AccessManager";
+import MedicalTimeline from "../components/MedicalTimeline";
 
-export default function PatientDashboard({ provider, signer, address, contract }) {
+export default function PatientDashboard({
+  provider,
+  signer,
+  address,
+  contract,
+}) {
   const [patientData, setPatientData] = useState(null);
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [base64Key, setBase64Key] = useState(null);
@@ -22,7 +27,7 @@ export default function PatientDashboard({ provider, signer, address, contract }
         setPatientData(null); // Not registered
       }
     } catch (err) {
-      console.error('Failed to check registration:', err);
+      console.error("Failed to check registration:", err);
     } finally {
       setLoading(false);
     }
@@ -36,7 +41,7 @@ export default function PatientDashboard({ provider, signer, address, contract }
       const exported = await exportKeyToBase64(key);
       setBase64Key(exported);
     } catch (err) {
-      console.error('Key derivation failed:', err);
+      console.error("Key derivation failed:", err);
       // User rejected the signature
     }
   };
@@ -48,26 +53,37 @@ export default function PatientDashboard({ provider, signer, address, contract }
   }, [contract, address]);
 
   if (loading) {
-    return <div className="text-center p-10 animate-pulse text-secondary border border-slate-200 rounded-xl mt-6">Loading blockchain data...</div>;
+    return (
+      <div className="text-center p-10 animate-pulse text-secondary border border-dark-border dark:border-dark-border rounded-xl mt-6">
+        Loading blockchain data...
+      </div>
+    );
   }
 
   // Not registered flow
   if (!patientData) {
-    return <PatientRegistration contract={contract} onRegistered={checkRegistration} />;
+    return (
+      <PatientRegistration
+        contract={contract}
+        onRegistered={checkRegistration}
+      />
+    );
   }
 
   // Registered but needs to unlock encryption key
   if (!encryptionKey) {
     return (
       <div className="glass-panel p-8 rounded-xl text-center mt-6 border-eth-green border-t-4 shadow-xl">
-        <h2 className="text-2xl font-bold mb-2 text-primary">Welcome back, {patientData.name}</h2>
-        <p className="text-slate-500 mb-8 max-w-lg mx-auto">
-          To view your encrypted medical history, you need to derive your decryption key. 
-          Please sign the authorization message in MetaMask.
+        <h2 className="text-2xl font-bold mb-2">
+          Welcome back, {patientData.name}
+        </h2>
+        <p className="text-dark-muted mb-8 max-w-lg mx-auto">
+          To view your encrypted medical history, you need to derive your
+          decryption key. Please sign the authorization message in MetaMask.
         </p>
-        <button 
+        <button
           onClick={handleDeriveKey}
-          className="bg-eth-green hover:bg-green-600 text-slate-900 font-bold py-3 px-8 rounded-lg outline-none active:scale-95 transition-transform"
+          className="btn-primary text-lg px-8 py-3"
         >
           Unlock Medical Records 🔐
         </button>
@@ -78,9 +94,11 @@ export default function PatientDashboard({ provider, signer, address, contract }
   // Fully unlocked dashboard
   return (
     <div className="mt-8 space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-300 shadow-sm">
-        <h2 className="text-xl font-bold text-eth-green">Patient: {patientData.name}</h2>
-        <span className="text-xs text-slate-500 font-mono bg-white shadow-sm px-3 py-1 rounded border border-slate-200">
+      <div className="flex flex-col sm:flex-row justify-between items-center dark:bg-dark-surface bg-slate-50 p-4 rounded-xl border dark:border-dark-border border-slate-300 shadow-sm">
+        <h2 className="text-xl font-bold text-eth-green">
+          Patient: {patientData.name}
+        </h2>
+        <span className="text-xs text-dark-muted font-mono dark:bg-dark-card bg-white shadow-sm px-3 py-1 rounded border dark:border-dark-border border-slate-200">
           {address}
         </span>
       </div>
@@ -94,10 +112,10 @@ export default function PatientDashboard({ provider, signer, address, contract }
 
         {/* Right Column - Timeline */}
         <div className="lg:col-span-2">
-          <MedicalTimeline 
-            contract={contract} 
-            address={address} 
-            encryptionKey={encryptionKey} 
+          <MedicalTimeline
+            contract={contract}
+            address={address}
+            encryptionKey={encryptionKey}
           />
         </div>
       </div>
