@@ -21,18 +21,18 @@ export default function WalletConnect({ onConnect }) {
 
   return (
     <div className="flex flex-col items-center justify-center p-8 glass-panel rounded-xl mt-8">
-      <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4">
+      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
         <span className="text-3xl">🦊</span>
       </div>
       <h2 className="text-2xl font-bold mb-2">Connect Your Wallet</h2>
-      <p className="text-muted text-center mb-6 max-w-md">
+      <p className="text-slate-500 text-center mb-6 max-w-md">
         Netsanet uses MetaMask to authenticate you and derive your personal encryption key. No usernames, no passwords.
       </p>
       
       <button 
         onClick={handleConnect}
         disabled={loading}
-        className="bg-accent-blue hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition-transform active:scale-95 disabled:opacity-50"
+        className="bg-accent-blue hover:bg-blue-600 text-slate-900 font-bold py-3 px-8 rounded-lg transition-transform active:scale-95 disabled:opacity-50"
       >
         {loading ? 'Connecting...' : 'Connect MetaMask'}
       </button>

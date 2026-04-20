@@ -36,18 +36,18 @@ export default function DoctorAccessManager({ contract, doctorAddress, patientAd
   }
 
   return (
-    <div className="glass-panel p-6 rounded-xl border border-gray-800">
+    <div className="glass-panel p-6 rounded-xl border border-slate-200">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold">Category Access</h3>
         <button 
           onClick={fetchAccessStatuses}
-          className="text-xs bg-surface hover:bg-gray-700 px-3 py-1 rounded transition-colors"
+          className="text-xs bg-slate-50 hover:bg-gray-700 px-3 py-1 rounded transition-colors"
         >
           Refresh
         </button>
       </div>
 
-      <p className="text-sm text-muted mb-4">
+      <p className="text-sm text-slate-500 mb-4">
         You can only view records for categories where the patient has explicitly granted you access.
       </p>
 
@@ -60,12 +60,12 @@ export default function DoctorAccessManager({ contract, doctorAddress, patientAd
             <div 
               key={catId} 
               className={`flex justify-between items-center p-3 rounded-lg border ${
-                hasAccess ? 'bg-[#1a1a1a] border-gray-700' : 'bg-transparent border-gray-800 opacity-60'
+                hasAccess ? 'bg-white shadow-sm border-slate-300' : 'bg-transparent border-slate-200 opacity-60'
               }`}
             >
               <div className="flex items-center gap-3">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                <span className={`text-sm ${hasAccess ? 'font-semibold text-white' : 'text-gray-400'}`}>
+                <span className={`text-sm ${hasAccess ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>
                   {label}
                 </span>
               </div>

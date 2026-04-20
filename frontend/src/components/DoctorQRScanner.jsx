@@ -36,12 +36,12 @@ export default function DoctorQRScanner({ onScan }) {
       </div>
       
       <h2 className="text-2xl font-bold mb-2">Scan Patient Medical ID</h2>
-      <p className="text-muted mb-8 max-w-md mx-auto">
+      <p className="text-slate-500 mb-8 max-w-md mx-auto">
         Scan the patient's QR code to connect their record to this clinic session, or paste their Ethereum address manually.
       </p>
 
       {/* Simulated Scanner Area */}
-      <div className="bg-black aspect-video rounded-xl border border-gray-800 flex flex-col items-center justify-center mb-8 relative overflow-hidden">
+      <div className="bg-black aspect-video rounded-xl border border-slate-200 flex flex-col items-center justify-center mb-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-eth-yellow/5 to-transparent animate-[scan_2s_ease-in-out_infinite]" />
         <p className="text-secondary text-sm z-10">Camera feed disabled for demo</p>
         <p className="text-xs text-gray-600 mt-2 z-10">Please use manual entry below</p>
@@ -53,7 +53,7 @@ export default function DoctorQRScanner({ onScan }) {
           value={manualInput}
           onChange={(e) => setManualInput(e.target.value)}
           placeholder="netsanet:0x... or 0x..."
-          className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-eth-yellow transition-colors text-white"
+          className="w-full bg-white shadow-sm border border-slate-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-eth-yellow transition-colors text-slate-900"
         />
         <button 
           onClick={() => handleInput(manualInput)}

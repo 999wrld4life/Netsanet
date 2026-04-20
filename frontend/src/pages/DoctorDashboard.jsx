@@ -33,9 +33,9 @@ export default function DoctorDashboard({ provider, signer, address, contract })
 
   return (
     <div className="mt-8 space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-surface p-4 rounded-xl border border-gray-700 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-300 shadow-sm">
         <h2 className="text-xl font-bold text-eth-yellow">Doctor Dashboard</h2>
-        <span className="text-xs text-muted font-mono bg-[#1a1a1a] px-3 py-1 rounded border border-gray-800">
+        <span className="text-xs text-slate-500 font-mono bg-white shadow-sm px-3 py-1 rounded border border-slate-200">
           Clinic: {address}
         </span>
       </div>
@@ -44,10 +44,10 @@ export default function DoctorDashboard({ provider, signer, address, contract })
         <DoctorQRScanner onScan={handleScan} />
       ) : (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-[#1a1a1a] p-4 rounded-xl border border-gray-800">
+          <div className="flex justify-between items-center bg-white shadow-sm p-4 rounded-xl border border-slate-200">
             <div>
               <p className="text-sm text-secondary">Active Patient</p>
-              <p className="font-mono text-sm text-white">{scannedPatient.address}</p>
+              <p className="font-mono text-sm text-slate-900">{scannedPatient.address}</p>
               {scannedPatient.base64Key && (
                 <p className="text-xs text-eth-green mt-1">✓ Encryption Key Received</p>
               )}

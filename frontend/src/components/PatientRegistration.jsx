@@ -28,7 +28,7 @@ export default function PatientRegistration({ contract, onRegistered }) {
   return (
     <div className="glass-panel p-6 rounded-xl mt-6 border-eth-green border-t-4">
       <h2 className="text-xl font-bold mb-4">Register as a New Patient</h2>
-      <p className="text-sm text-muted mb-6">
+      <p className="text-sm text-slate-500 mb-6">
         Create your digital medical identity. Your real medical data will be encrypted and stored separately.
       </p>
 
@@ -40,7 +40,7 @@ export default function PatientRegistration({ contract, onRegistered }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Selam Tadesse"
-            className="w-full bg-surface border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-eth-green"
+            className="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-slate-900 focus:outline-none focus:border-eth-green"
             required
           />
         </div>

@@ -70,7 +70,7 @@ export default function RecordSubmissionForm({ patientAddress, base64Key, onReco
   };
 
   return (
-    <div className="glass-panel p-6 rounded-xl border border-gray-800">
+    <div className="glass-panel p-6 rounded-xl border border-slate-200">
       <h3 className="text-lg font-bold mb-4">Add New Record</h3>
       
       {!base64Key && (
@@ -85,7 +85,7 @@ export default function RecordSubmissionForm({ patientAddress, base64Key, onReco
           <select 
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full bg-[#1a1a1a] border border-gray-700 rounded p-2 text-sm focus:border-eth-yellow outline-none text-white"
+            className="w-full bg-white shadow-sm border border-slate-300 rounded p-2 text-sm focus:border-eth-yellow outline-none text-slate-900"
           >
             {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
@@ -101,40 +101,40 @@ export default function RecordSubmissionForm({ patientAddress, base64Key, onReco
             value={recordType}
             onChange={(e) => setRecordType(e.target.value)}
             placeholder="e.g. CD4 Checkup, MRI Scan..." 
-            className="w-full bg-[#1a1a1a] border border-gray-700 rounded p-2 text-sm focus:border-eth-yellow outline-none text-white"
+            className="w-full bg-white shadow-sm border border-slate-300 rounded p-2 text-sm focus:border-eth-yellow outline-none text-slate-900"
           />
         </div>
 
         <div>
           <label className="block text-xs text-secondary mb-1">Diagnosis</label>
-          <input 
-            type="text" 
+          <textarea 
+            rows="3"
             value={diagnosis}
             onChange={(e) => setDiagnosis(e.target.value)}
             placeholder="e.g. Type 2 Diabetes" 
-            className="w-full bg-[#1a1a1a] border border-gray-700 rounded p-2 text-sm focus:border-eth-yellow outline-none text-white"
+            className="w-full bg-white shadow-sm border border-slate-300 rounded p-2 text-sm focus:border-eth-yellow outline-none text-slate-900 resize-y min-h-[80px]"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-secondary mb-1">Medication</label>
-            <input 
-              type="text" 
+            <textarea 
+              rows="3"
               value={medication}
               onChange={(e) => setMedication(e.target.value)}
               placeholder="e.g. Metformin 500mg" 
-              className="w-full bg-[#1a1a1a] border border-gray-700 rounded p-2 text-sm focus:border-eth-yellow outline-none text-white"
+              className="w-full bg-white shadow-sm border border-slate-300 rounded p-2 text-sm focus:border-eth-yellow outline-none text-slate-900 resize-y min-h-[80px]"
             />
           </div>
           <div>
             <label className="block text-xs text-secondary mb-1">Vitals / CD4 Count</label>
-            <input 
-              type="text" 
+            <textarea 
+              rows="3"
               value={cd4Count}
               onChange={(e) => setCd4Count(e.target.value)}
               placeholder="e.g. 600" 
-              className="w-full bg-[#1a1a1a] border border-gray-700 rounded p-2 text-sm focus:border-eth-yellow outline-none text-white"
+              className="w-full bg-white shadow-sm border border-slate-300 rounded p-2 text-sm focus:border-eth-yellow outline-none text-slate-900 resize-y min-h-[80px]"
             />
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function RecordSubmissionForm({ patientAddress, base64Key, onReco
              onChange={(e) => setNotes(e.target.value)}
              rows={3}
              placeholder="Observations, next steps..."
-             className="w-full bg-[#1a1a1a] border border-gray-700 rounded p-2 text-sm focus:border-eth-yellow outline-none text-white"
+             className="w-full bg-white shadow-sm border border-slate-300 rounded p-2 text-sm focus:border-eth-yellow outline-none text-slate-900"
            />
         </div>
 

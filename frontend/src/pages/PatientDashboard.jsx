@@ -48,7 +48,7 @@ export default function PatientDashboard({ provider, signer, address, contract }
   }, [contract, address]);
 
   if (loading) {
-    return <div className="text-center p-10 animate-pulse text-secondary border border-gray-800 rounded-xl mt-6">Loading blockchain data...</div>;
+    return <div className="text-center p-10 animate-pulse text-secondary border border-slate-200 rounded-xl mt-6">Loading blockchain data...</div>;
   }
 
   // Not registered flow
@@ -61,13 +61,13 @@ export default function PatientDashboard({ provider, signer, address, contract }
     return (
       <div className="glass-panel p-8 rounded-xl text-center mt-6 border-eth-green border-t-4 shadow-xl">
         <h2 className="text-2xl font-bold mb-2 text-primary">Welcome back, {patientData.name}</h2>
-        <p className="text-muted mb-8 max-w-lg mx-auto">
+        <p className="text-slate-500 mb-8 max-w-lg mx-auto">
           To view your encrypted medical history, you need to derive your decryption key. 
           Please sign the authorization message in MetaMask.
         </p>
         <button 
           onClick={handleDeriveKey}
-          className="bg-eth-green hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg outline-none active:scale-95 transition-transform"
+          className="bg-eth-green hover:bg-green-600 text-slate-900 font-bold py-3 px-8 rounded-lg outline-none active:scale-95 transition-transform"
         >
           Unlock Medical Records 🔐
         </button>
@@ -78,9 +78,9 @@ export default function PatientDashboard({ provider, signer, address, contract }
   // Fully unlocked dashboard
   return (
     <div className="mt-8 space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-surface p-4 rounded-xl border border-gray-700 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-300 shadow-sm">
         <h2 className="text-xl font-bold text-eth-green">Patient: {patientData.name}</h2>
-        <span className="text-xs text-muted font-mono bg-[#1a1a1a] px-3 py-1 rounded border border-gray-800">
+        <span className="text-xs text-slate-500 font-mono bg-white shadow-sm px-3 py-1 rounded border border-slate-200">
           {address}
         </span>
       </div>
