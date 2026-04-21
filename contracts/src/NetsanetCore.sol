@@ -1,215 +1,180 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title NetsanetCore — Patient-Owned Medical Records for Ethiopia
+/// @title NetsanetCore
 /// @author Nathaniel Abayneh (Woof Woof)
-/// @notice This contract enables patients to own, store metadata for, and
-///         selectively share their medical records on-chain.  Actual medical
-///         data lives encrypted on IPFS; only CID pointers and access-control
-///         state are stored here.
-/// @dev    MVP-grade.  Category-based selective access is the key feature:
-///         a doctor granted HIV_TREATMENT access literally cannot read
-///         MENTAL_HEALTH record CIDs from this contract.
-
+/// @notice Patient-owned medical records with category-based access control.
 contract NetsanetCore {
-
-    // ──────────────────────────────────────────────
-    //  Enums
-    // ──────────────────────────────────────────────
-
-    /// @notice Categories that partition a patient's medical history.
-    ///         Access is granted per-category so a doctor requesting
-    ///         HIV_TREATMENT access cannot see MENTAL_HEALTH records.
     enum RecordCategory {
-        GENERAL_CONSULTATION,   // 0
-        HIV_TREATMENT,          // 1
-        MENTAL_HEALTH,          // 2
-        LAB_RESULT,             // 3
-        PRESCRIPTION,           // 4
-        PRENATAL_CARE,          // 5
-        CHRONIC_DISEASE         // 6
+        GENERAL_CONSULTATION,
+        HIV_TREATMENT,
+        MENTAL_HEALTH,
+        LAB_RESULT,
+        PRESCRIPTION,
+        PRENATAL_CARE,
+        CHRONIC_DISEASE
     }
 
-    // ──────────────────────────────────────────────
-    //  Structs
-    // ──────────────────────────────────────────────
+    enum AccessRequestStatus {
+        NONE,
+        PENDING,
+        APPROVED,
+        DECLINED
+    }
 
     struct Patient {
-        string  name;           // human-readable name (demo only)
+        string name;
         uint256 createdAt;
-        bool    exists;
+        bool exists;
     }
 
     struct MedicalRecord {
-        string         ipfsCID;        // pointer to encrypted JSON on IPFS
-        RecordCategory category;       // which category this record belongs to
-        string         recordType;     // human-readable sub-type, e.g. "CD4 Count"
-        address        addedByClinic;  // wallet of the clinic/doctor who wrote this
-        uint256        timestamp;
+        string ipfsCID;
+        RecordCategory category;
+        string recordType;
+        address addedByClinic;
+        uint256 timestamp;
     }
 
     struct AccessGrant {
-        address        doctor;
-        RecordCategory category;       // access to ONE specific category
-        uint256        grantedAt;
-        uint256        expiresAt;
-        bool           revoked;        // patient can revoke before expiry
+        address doctor;
+        RecordCategory category;
+        uint256 grantedAt;
+        uint256 expiresAt;
+        bool revoked;
     }
 
-    // ──────────────────────────────────────────────
-    //  State
-    // ──────────────────────────────────────────────
+    struct AccessRequest {
+        address doctor;
+        RecordCategory category;
+        uint256 requestedAt;
+        uint256 requestedDurationHours;
+        uint256 respondedAt;
+        AccessRequestStatus status;
+    }
 
-    /// @dev patient wallet → Patient metadata
+    struct AuditEntry {
+        address accessor;
+        RecordCategory category;
+        uint256 timestamp;
+        string action;
+    }
+
     mapping(address => Patient) public patients;
-
-    /// @dev patient wallet → array of MedicalRecord
     mapping(address => MedicalRecord[]) private _patientRecords;
-
-    /// @dev patient wallet → array of AccessGrant
     mapping(address => AccessGrant[]) private _accessGrants;
+    mapping(address => AccessRequest[]) private _accessRequests;
+    mapping(address => AuditEntry[]) private _auditLog;
 
-    /// @dev Lookup: patient → doctor → category → index in _accessGrants (+ 1).
-    ///      Zero means "no grant exists".  We store index+1 so that 0 is the
-    ///      sentinel for "not found".
     mapping(address => mapping(address => mapping(RecordCategory => uint256)))
         private _grantIndex;
 
-    /// @dev Audit log entries per patient.
-    mapping(address => AuditEntry[]) private _auditLog;
-
-    struct AuditEntry {
-        address        accessor;
-        RecordCategory category;
-        uint256        timestamp;
-        string         action;    // "ACCESS_USED", "RECORD_ADDED", etc.
-    }
-
-    // ──────────────────────────────────────────────
-    //  Events  (used for off-chain indexing & UI)
-    // ──────────────────────────────────────────────
+    mapping(address => mapping(address => mapping(RecordCategory => uint256)))
+        private _requestIndex;
 
     event PatientRegistered(
         address indexed patient,
-        string  name,
+        string name,
         uint256 timestamp
     );
 
     event RecordAdded(
         address indexed patient,
         address indexed clinic,
-        RecordCategory  category,
-        string          recordType,
-        uint256         recordIndex,
-        uint256         timestamp
+        RecordCategory category,
+        string recordType,
+        uint256 recordIndex,
+        uint256 timestamp
     );
 
     event AccessGranted(
         address indexed patient,
         address indexed doctor,
-        RecordCategory  category,
-        uint256         expiresAt,
-        uint256         timestamp
+        RecordCategory category,
+        uint256 expiresAt,
+        uint256 timestamp
     );
 
     event AccessRevoked(
         address indexed patient,
         address indexed doctor,
-        RecordCategory  category,
-        uint256         timestamp
+        RecordCategory category,
+        uint256 timestamp
     );
 
     event AccessUsed(
         address indexed patient,
         address indexed doctor,
-        RecordCategory  category,
-        uint256         recordCount,
-        uint256         timestamp
+        RecordCategory category,
+        uint256 recordCount,
+        uint256 timestamp
     );
 
-    // ──────────────────────────────────────────────
-    //  Modifiers
-    // ──────────────────────────────────────────────
+    event AccessRequested(
+        address indexed patient,
+        address indexed doctor,
+        RecordCategory category,
+        uint256 durationHours,
+        uint256 timestamp
+    );
 
-    /// @notice Caller must be a registered patient.
+    event AccessRequestResponded(
+        address indexed patient,
+        address indexed doctor,
+        RecordCategory category,
+        uint256 durationHours,
+        bool approved,
+        uint256 timestamp
+    );
+
     modifier onlyPatient() {
         require(patients[msg.sender].exists, "Not a registered patient");
         _;
     }
 
-    /// @notice The target address must be a registered patient.
     modifier patientExists(address _patient) {
         require(patients[_patient].exists, "Patient does not exist");
         _;
     }
 
-    /// @notice The caller (doctor) must hold an active, non-expired,
-    ///         non-revoked grant for the given patient + category.
-    modifier onlyAuthorized(address _patient, RecordCategory _category) {
-        require(
-            hasActiveAccess(_patient, msg.sender, _category),
-            "Access denied: no active grant for this category"
-        );
-        _;
-    }
-
-    // ──────────────────────────────────────────────
-    //  Patient Registration
-    // ──────────────────────────────────────────────
-
-    /// @notice Register the caller as a patient.
-    /// @param _name A human-readable display name (for the demo).
     function registerPatient(string calldata _name) external {
         require(!patients[msg.sender].exists, "Patient already registered");
         require(bytes(_name).length > 0, "Name cannot be empty");
 
         patients[msg.sender] = Patient({
-            name:      _name,
+            name: _name,
             createdAt: block.timestamp,
-            exists:    true
+            exists: true
         });
 
         emit PatientRegistered(msg.sender, _name, block.timestamp);
     }
 
-    // ──────────────────────────────────────────────
-    //  Record Management
-    // ──────────────────────────────────────────────
-
-    /// @notice A clinic/doctor adds a medical record for a patient.
-    /// @dev    Anyone can call this (in the MVP the frontend enforces
-    ///         that the caller is a clinic).  The patient can always
-    ///         verify who added a record via `addedByClinic`.
-    /// @param _patient     The patient's wallet address.
-    /// @param _ipfsCID     IPFS content-identifier of the encrypted record.
-    /// @param _category    The record category (determines who can read it).
-    /// @param _recordType  Human-readable sub-type, e.g. "Consultation".
     function addRecord(
-        address        _patient,
-        string  calldata _ipfsCID,
+        address _patient,
+        string calldata _ipfsCID,
         RecordCategory _category,
-        string  calldata _recordType
+        string calldata _recordType
     ) external patientExists(_patient) {
-        require(bytes(_ipfsCID).length > 0,    "IPFS CID cannot be empty");
+        require(bytes(_ipfsCID).length > 0, "IPFS CID cannot be empty");
         require(bytes(_recordType).length > 0, "Record type cannot be empty");
 
         MedicalRecord memory record = MedicalRecord({
-            ipfsCID:       _ipfsCID,
-            category:      _category,
-            recordType:    _recordType,
+            ipfsCID: _ipfsCID,
+            category: _category,
+            recordType: _recordType,
             addedByClinic: msg.sender,
-            timestamp:     block.timestamp
+            timestamp: block.timestamp
         });
 
         _patientRecords[_patient].push(record);
         uint256 idx = _patientRecords[_patient].length - 1;
 
-        // Audit
         _auditLog[_patient].push(AuditEntry({
-            accessor:  msg.sender,
-            category:  _category,
+            accessor: msg.sender,
+            category: _category,
             timestamp: block.timestamp,
-            action:    "RECORD_ADDED"
+            action: "RECORD_ADDED"
         }));
 
         emit RecordAdded(
@@ -222,70 +187,222 @@ contract NetsanetCore {
         );
     }
 
-    // ──────────────────────────────────────────────
-    //  Access Control
-    // ──────────────────────────────────────────────
+    function _validateGrantInputs(
+        address _patient,
+        address _doctor,
+        uint256 _durationHours
+    ) internal pure {
+        require(_doctor != address(0), "Invalid doctor address");
+        require(_doctor != _patient, "Cannot grant access to yourself");
+        require(_durationHours > 0, "Duration must be > 0");
+        require(_durationHours <= 168, "Duration cannot exceed 7 days");
+    }
 
-    /// @notice Patient grants a doctor time-limited access to ONE category.
-    /// @param _doctor          The doctor's wallet address.
-    /// @param _category        Which record category to share.
-    /// @param _durationHours   How many hours the access lasts.
-    function grantAccess(
-        address        _doctor,
+    function _grantAccessInternal(
+        address _patient,
+        address _doctor,
         RecordCategory _category,
-        uint256        _durationHours
-    ) external onlyPatient {
-        require(_doctor != address(0),  "Invalid doctor address");
-        require(_doctor != msg.sender,  "Cannot grant access to yourself");
-        require(_durationHours > 0,     "Duration must be > 0");
-        require(_durationHours <= 168,  "Duration cannot exceed 7 days");
+        uint256 _durationHours
+    ) internal {
+        _validateGrantInputs(_patient, _doctor, _durationHours);
 
-        // Check if an existing grant already exists for this combo
-        uint256 existingIdx = _grantIndex[msg.sender][_doctor][_category];
+        uint256 expiresAt = block.timestamp + (_durationHours * 1 hours);
+        uint256 existingIdx = _grantIndex[_patient][_doctor][_category];
+
         if (existingIdx != 0) {
-            // Overwrite: update the existing grant in place
-            AccessGrant storage existing = _accessGrants[msg.sender][existingIdx - 1];
+            AccessGrant storage existing = _accessGrants[_patient][existingIdx - 1];
             existing.grantedAt = block.timestamp;
-            existing.expiresAt = block.timestamp + (_durationHours * 1 hours);
-            existing.revoked   = false;
+            existing.expiresAt = expiresAt;
+            existing.revoked = false;
         } else {
-            // Create new grant
             AccessGrant memory grant = AccessGrant({
-                doctor:    _doctor,
-                category:  _category,
+                doctor: _doctor,
+                category: _category,
                 grantedAt: block.timestamp,
-                expiresAt: block.timestamp + (_durationHours * 1 hours),
-                revoked:   false
+                expiresAt: expiresAt,
+                revoked: false
             });
-            _accessGrants[msg.sender].push(grant);
-            // Store index+1 (so 0 remains the sentinel for "no grant")
-            _grantIndex[msg.sender][_doctor][_category] =
-                _accessGrants[msg.sender].length;
+
+            _accessGrants[_patient].push(grant);
+            _grantIndex[_patient][_doctor][_category] =
+                _accessGrants[_patient].length;
         }
 
-        // Audit
-        _auditLog[msg.sender].push(AuditEntry({
-            accessor:  _doctor,
-            category:  _category,
+        _auditLog[_patient].push(AuditEntry({
+            accessor: _doctor,
+            category: _category,
             timestamp: block.timestamp,
-            action:    "ACCESS_GRANTED"
+            action: "ACCESS_GRANTED"
         }));
 
         emit AccessGranted(
-            msg.sender,
+            _patient,
             _doctor,
             _category,
-            block.timestamp + (_durationHours * 1 hours),
+            expiresAt,
             block.timestamp
         );
     }
 
-    /// @notice Patient revokes a doctor's access to a specific category
-    ///         before it naturally expires.
-    /// @param _doctor   The doctor whose access to revoke.
-    /// @param _category The category to revoke.
+    function _syncRequestApprovalIfNeeded(
+        address _patient,
+        address _doctor,
+        RecordCategory _category,
+        uint256 _durationHours
+    ) internal {
+        uint256 requestIdx = _requestIndex[_patient][_doctor][_category];
+        if (requestIdx == 0) {
+            return;
+        }
+
+        AccessRequest storage request = _accessRequests[_patient][requestIdx - 1];
+        if (request.status == AccessRequestStatus.APPROVED) {
+            return;
+        }
+
+        request.requestedDurationHours = _durationHours;
+        request.respondedAt = block.timestamp;
+        request.status = AccessRequestStatus.APPROVED;
+
+        emit AccessRequestResponded(
+            _patient,
+            _doctor,
+            _category,
+            _durationHours,
+            true,
+            block.timestamp
+        );
+    }
+
+    function grantAccess(
+        address _doctor,
+        RecordCategory _category,
+        uint256 _durationHours
+    ) external onlyPatient {
+        _grantAccessInternal(msg.sender, _doctor, _category, _durationHours);
+        _syncRequestApprovalIfNeeded(
+            msg.sender,
+            _doctor,
+            _category,
+            _durationHours
+        );
+    }
+
+    function requestAccess(
+        address _patient,
+        RecordCategory _category,
+        uint256 _durationHours
+    ) external patientExists(_patient) {
+        _validateGrantInputs(_patient, msg.sender, _durationHours);
+        require(
+            !hasActiveAccess(_patient, msg.sender, _category),
+            "Access already active for this category"
+        );
+
+        uint256 requestIdx = _requestIndex[_patient][msg.sender][_category];
+
+        if (requestIdx != 0) {
+            AccessRequest storage existing = _accessRequests[_patient][requestIdx - 1];
+            require(
+                existing.status != AccessRequestStatus.PENDING,
+                "Access request already pending"
+            );
+
+            existing.requestedAt = block.timestamp;
+            existing.requestedDurationHours = _durationHours;
+            existing.respondedAt = 0;
+            existing.status = AccessRequestStatus.PENDING;
+        } else {
+            AccessRequest memory request = AccessRequest({
+                doctor: msg.sender,
+                category: _category,
+                requestedAt: block.timestamp,
+                requestedDurationHours: _durationHours,
+                respondedAt: 0,
+                status: AccessRequestStatus.PENDING
+            });
+
+            _accessRequests[_patient].push(request);
+            _requestIndex[_patient][msg.sender][_category] =
+                _accessRequests[_patient].length;
+        }
+
+        _auditLog[_patient].push(AuditEntry({
+            accessor: msg.sender,
+            category: _category,
+            timestamp: block.timestamp,
+            action: "ACCESS_REQUESTED"
+        }));
+
+        emit AccessRequested(
+            _patient,
+            msg.sender,
+            _category,
+            _durationHours,
+            block.timestamp
+        );
+    }
+
+    function respondToAccessRequest(
+        address _doctor,
+        RecordCategory _category,
+        bool _approve
+    ) external onlyPatient {
+        uint256 requestIdx = _requestIndex[msg.sender][_doctor][_category];
+        require(
+            requestIdx != 0,
+            "No access request exists for this doctor/category"
+        );
+
+        AccessRequest storage request = _accessRequests[msg.sender][requestIdx - 1];
+        require(
+            request.status == AccessRequestStatus.PENDING,
+            "Access request is not pending"
+        );
+
+        request.respondedAt = block.timestamp;
+
+        if (_approve) {
+            request.status = AccessRequestStatus.APPROVED;
+
+            emit AccessRequestResponded(
+                msg.sender,
+                _doctor,
+                _category,
+                request.requestedDurationHours,
+                true,
+                block.timestamp
+            );
+
+            _grantAccessInternal(
+                msg.sender,
+                _doctor,
+                _category,
+                request.requestedDurationHours
+            );
+        } else {
+            request.status = AccessRequestStatus.DECLINED;
+
+            _auditLog[msg.sender].push(AuditEntry({
+                accessor: _doctor,
+                category: _category,
+                timestamp: block.timestamp,
+                action: "ACCESS_REQUEST_DECLINED"
+            }));
+
+            emit AccessRequestResponded(
+                msg.sender,
+                _doctor,
+                _category,
+                request.requestedDurationHours,
+                false,
+                block.timestamp
+            );
+        }
+    }
+
     function revokeAccess(
-        address        _doctor,
+        address _doctor,
         RecordCategory _category
     ) external onlyPatient {
         uint256 idx = _grantIndex[msg.sender][_doctor][_category];
@@ -297,52 +414,39 @@ contract NetsanetCore {
 
         grant.revoked = true;
 
-        // Audit
         _auditLog[msg.sender].push(AuditEntry({
-            accessor:  _doctor,
-            category:  _category,
+            accessor: _doctor,
+            category: _category,
             timestamp: block.timestamp,
-            action:    "ACCESS_REVOKED"
+            action: "ACCESS_REVOKED"
         }));
 
         emit AccessRevoked(msg.sender, _doctor, _category, block.timestamp);
     }
 
-    // ──────────────────────────────────────────────
-    //  Read Functions
-    // ──────────────────────────────────────────────
-
-    /// @notice Check whether `_doctor` currently has active access to
-    ///         `_category` for `_patient`.
-    /// @return True if an active, non-revoked, non-expired grant exists.
     function hasActiveAccess(
-        address        _patient,
-        address        _doctor,
+        address _patient,
+        address _doctor,
         RecordCategory _category
     ) public view returns (bool) {
         uint256 idx = _grantIndex[_patient][_doctor][_category];
-        if (idx == 0) return false;
+        if (idx == 0) {
+            return false;
+        }
 
         AccessGrant storage grant = _accessGrants[_patient][idx - 1];
         return !grant.revoked && block.timestamp < grant.expiresAt;
     }
 
-    /// @notice Returns only the records in `_category` for the given patient.
-    /// @dev    Caller must either be the patient themselves OR hold an
-    ///         active grant for that category.  Emits AccessUsed when a
-    ///         doctor reads records.
-    /// @param _patient  The patient whose records to query.
-    /// @param _category The category to filter by.
-    /// @return filtered Array of MedicalRecord in the requested category.
     function getRecordsByCategory(
-        address        _patient,
+        address _patient,
         RecordCategory _category
     )
         external
         patientExists(_patient)
         returns (MedicalRecord[] memory filtered)
     {
-        bool isOwner = (msg.sender == _patient);
+        bool isOwner = msg.sender == _patient;
 
         if (!isOwner) {
             require(
@@ -353,7 +457,6 @@ contract NetsanetCore {
 
         MedicalRecord[] storage all = _patientRecords[_patient];
 
-        // First pass: count matches
         uint256 count = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].category == _category) {
@@ -361,7 +464,6 @@ contract NetsanetCore {
             }
         }
 
-        // Second pass: populate return array
         filtered = new MedicalRecord[](count);
         uint256 j = 0;
         for (uint256 i = 0; i < all.length; i++) {
@@ -371,13 +473,12 @@ contract NetsanetCore {
             }
         }
 
-        // Audit (only when a doctor reads, not the patient themselves)
         if (!isOwner) {
             _auditLog[_patient].push(AuditEntry({
-                accessor:  msg.sender,
-                category:  _category,
+                accessor: msg.sender,
+                category: _category,
                 timestamp: block.timestamp,
-                action:    "ACCESS_USED"
+                action: "ACCESS_USED"
             }));
 
             emit AccessUsed(
@@ -392,9 +493,6 @@ contract NetsanetCore {
         return filtered;
     }
 
-    /// @notice Returns ALL records for the calling patient (owner only).
-    /// @dev    Only the patient themselves can call this.
-    /// @return All MedicalRecord entries for msg.sender.
     function getMyRecords()
         external
         view
@@ -404,9 +502,6 @@ contract NetsanetCore {
         return _patientRecords[msg.sender];
     }
 
-    /// @notice Returns the total number of records a patient has.
-    /// @param _patient The patient's address.
-    /// @return The record count.
     function getRecordCount(address _patient)
         external
         view
@@ -416,9 +511,6 @@ contract NetsanetCore {
         return _patientRecords[_patient].length;
     }
 
-    /// @notice Returns all access grants for the calling patient.
-    /// @dev    Only the patient can view their own grants.
-    /// @return All AccessGrant entries for msg.sender.
     function getMyAccessGrants()
         external
         view
@@ -428,9 +520,33 @@ contract NetsanetCore {
         return _accessGrants[msg.sender];
     }
 
-    /// @notice Returns the full audit log for the calling patient.
-    /// @dev    Only the patient can view their own audit log.
-    /// @return All AuditEntry items for msg.sender.
+    function getMyPendingAccessRequests()
+        external
+        view
+        onlyPatient
+        returns (AccessRequest[] memory pending)
+    {
+        AccessRequest[] storage all = _accessRequests[msg.sender];
+
+        uint256 count = 0;
+        for (uint256 i = 0; i < all.length; i++) {
+            if (all[i].status == AccessRequestStatus.PENDING) {
+                count++;
+            }
+        }
+
+        pending = new AccessRequest[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < all.length; i++) {
+            if (all[i].status == AccessRequestStatus.PENDING) {
+                pending[j] = all[i];
+                j++;
+            }
+        }
+
+        return pending;
+    }
+
     function getMyAuditLog()
         external
         view
@@ -440,22 +556,29 @@ contract NetsanetCore {
         return _auditLog[msg.sender];
     }
 
-    /// @notice Convenience: returns grant details for a specific
-    ///         patient + doctor + category combination.
-    /// @param _patient  The patient's address.
-    /// @param _doctor   The doctor's address.
-    /// @param _category The record category.
-    /// @return grant    The AccessGrant struct (zeroed if none exists).
-    /// @return exists   Whether a grant was ever created.
     function getGrantDetails(
-        address        _patient,
-        address        _doctor,
+        address _patient,
+        address _doctor,
         RecordCategory _category
     ) external view returns (AccessGrant memory grant, bool exists) {
         uint256 idx = _grantIndex[_patient][_doctor][_category];
         if (idx == 0) {
             return (grant, false);
         }
+
         return (_accessGrants[_patient][idx - 1], true);
+    }
+
+    function getAccessRequestDetails(
+        address _patient,
+        address _doctor,
+        RecordCategory _category
+    ) external view returns (AccessRequest memory request, bool exists) {
+        uint256 idx = _requestIndex[_patient][_doctor][_category];
+        if (idx == 0) {
+            return (request, false);
+        }
+
+        return (_accessRequests[_patient][idx - 1], true);
     }
 }

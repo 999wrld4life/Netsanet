@@ -1,24 +1,51 @@
-import { useState, useEffect } from "react";
-import { CATEGORY_LABELS, CATEGORY_COLORS } from "../utils/records";
+import { useEffect, useState } from "react";
+import { CATEGORY_COLORS, CATEGORY_LABELS } from "../utils/records";
+
+function truncateAddress(address) {
+  if (!address) {
+    return "";
+  }
+
+  return `${address.substring(0, 8)}...${address.substring(38)}`;
+}
+
+function formatDate(timestampSeconds) {
+  if (!timestampSeconds) {
+    return "Just now";
+  }
+
+  return new Date(Number(timestampSeconds) * 1000).toLocaleString();
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error?.reason || error?.shortMessage || error?.message || fallbackMessage;
+}
 
 export default function AccessManager({ contract, address }) {
   const [grants, setGrants] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [requestActionKey, setRequestActionKey] = useState(null);
 
-  // New Grant Form State
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [newDocAddress, setNewDocAddress] = useState("");
-  const [newCat, setNewCat] = useState("0"); // GENERAL_CONSULTATION default
-  const [newDuration, setNewDuration] = useState("24"); // Default 24 hours
+  const [newCat, setNewCat] = useState("0");
+  const [newDuration, setNewDuration] = useState("24");
   const [granting, setGranting] = useState(false);
 
-  const fetchGrants = async () => {
+  const fetchAccessData = async () => {
     try {
       setLoading(true);
-      const data = await contract.getMyAccessGrants();
-      setGrants(data);
-    } catch (err) {
-      console.error(err);
+
+      const [grantData, pendingRequestData] = await Promise.all([
+        contract.getMyAccessGrants(),
+        contract.getMyPendingAccessRequests(),
+      ]);
+
+      setGrants(grantData);
+      setPendingRequests(pendingRequestData);
+    } catch (error) {
+      console.error("Failed to load access data:", error);
     } finally {
       setLoading(false);
     }
@@ -26,7 +53,7 @@ export default function AccessManager({ contract, address }) {
 
   useEffect(() => {
     if (contract && address) {
-      fetchGrants();
+      fetchAccessData();
     }
   }, [contract, address]);
 
@@ -34,73 +61,111 @@ export default function AccessManager({ contract, address }) {
     try {
       const tx = await contract.revokeAccess(doctor, category);
       await tx.wait();
-      fetchGrants(); // Refresh
-    } catch (err) {
-      console.error("Failed to revoke:", err);
+      await fetchAccessData();
+    } catch (error) {
+      console.error("Failed to revoke access:", error);
       alert(
-        "Failed to revoke access. Ensure it is not already expired/revoked.",
+        getErrorMessage(
+          error,
+          "Failed to revoke access. Ensure it is not already expired or revoked.",
+        ),
       );
     }
   };
 
-  const handleGrant = async (e) => {
-    e.preventDefault();
-    if (!newDocAddress.trim()) return;
+  const handleGrant = async (event) => {
+    event.preventDefault();
+
+    if (!newDocAddress.trim()) {
+      return;
+    }
+
     try {
       setGranting(true);
-      const categoryNum = parseInt(newCat);
-      const durationHours = parseInt(newDuration);
 
       const tx = await contract.grantAccess(
-        newDocAddress,
-        categoryNum,
-        durationHours,
+        newDocAddress.trim(),
+        parseInt(newCat, 10),
+        parseInt(newDuration, 10),
       );
       await tx.wait();
 
       setNewDocAddress("");
+      setNewCat("0");
+      setNewDuration("24");
       setShowGrantForm(false);
-      fetchGrants(); // Refresh list
-    } catch (err) {
-      console.error("Failed to grant:", err);
-      alert("Failed to grant access. Please check the address and try again.");
+      await fetchAccessData();
+    } catch (error) {
+      console.error("Failed to grant access:", error);
+      alert(
+        getErrorMessage(
+          error,
+          "Failed to grant access. Please check the address and try again.",
+        ),
+      );
     } finally {
       setGranting(false);
     }
   };
 
-  if (loading)
+  const handleRequestResponse = async (doctor, category, approve) => {
+    const actionKey = `${doctor}-${category}-${approve ? "approve" : "decline"}`;
+
+    try {
+      setRequestActionKey(actionKey);
+      const tx = await contract.respondToAccessRequest(doctor, category, approve);
+      await tx.wait();
+      await fetchAccessData();
+    } catch (error) {
+      console.error("Failed to respond to request:", error);
+      alert(
+        getErrorMessage(
+          error,
+          "Failed to respond to the doctor's request. Please try again.",
+        ),
+      );
+    } finally {
+      setRequestActionKey(null);
+    }
+  };
+
+  const getGrantStatus = (grant) => {
+    if (grant.revoked) {
+      return { text: "Revoked", color: "text-error" };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now >= Number(grant.expiresAt)) {
+      return { text: "Expired", color: "text-slate-500" };
+    }
+
+    return { text: "Active", color: "text-success" };
+  };
+
+  if (loading) {
     return (
       <div className="p-4 text-secondary animate-pulse">
         Loading access grants...
       </div>
     );
-
-  const getStatus = (grant) => {
-    if (grant.revoked) return { text: "Revoked", color: "text-error" };
-    const now = Math.floor(Date.now() / 1000);
-    if (now >= Number(grant.expiresAt))
-      return { text: "Expired", color: "text-slate-500" };
-    return { text: "Active", color: "text-success" };
-  };
+  }
 
   return (
-    <div className="glass-panel p-6 rounded-xl border dark:border-dark-border border-slate-200">
-      <div className="flex justify-between items-center mb-4">
+    <div className="glass-panel p-6 rounded-xl border dark:border-dark-border border-slate-200 space-y-6">
+      <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Who Has Access?</h3>
         <button
-          onClick={() => setShowGrantForm(!showGrantForm)}
+          onClick={() => setShowGrantForm((current) => !current)}
           className="text-xs btn-ghost text-eth-green border border-eth-green px-3 py-1 rounded transition-colors hover:border-eth-green"
         >
           {showGrantForm ? "Cancel" : "+ Grant Access"}
         </button>
       </div>
 
-      {/* GRANT FORM */}
       {showGrantForm && (
         <form
           onSubmit={handleGrant}
-          className="dark:bg-dark-card bg-white shadow-sm p-4 rounded-lg border dark:border-dark-border border-slate-300 mb-6 space-y-3"
+          className="dark:bg-dark-card bg-white shadow-sm p-4 rounded-lg border dark:border-dark-border border-slate-300 space-y-3"
         >
           <div>
             <label className="block text-xs text-secondary mb-1">
@@ -110,11 +175,12 @@ export default function AccessManager({ contract, address }) {
               type="text"
               required
               value={newDocAddress}
-              onChange={(e) => setNewDocAddress(e.target.value)}
+              onChange={(event) => setNewDocAddress(event.target.value)}
               placeholder="0x..."
               className="w-full rounded p-2 text-sm font-mono"
             />
           </div>
+
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-xs text-secondary mb-1">
@@ -122,28 +188,31 @@ export default function AccessManager({ contract, address }) {
               </label>
               <select
                 value={newCat}
-                onChange={(e) => setNewCat(e.target.value)}
+                onChange={(event) => setNewCat(event.target.value)}
                 className="w-full rounded p-2 text-sm"
               >
-                {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>
+                {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
               </select>
             </div>
+
             <div className="w-24">
               <label className="block text-xs text-secondary mb-1">Hours</label>
               <input
                 type="number"
                 required
                 min="1"
+                max="168"
                 value={newDuration}
-                onChange={(e) => setNewDuration(e.target.value)}
+                onChange={(event) => setNewDuration(event.target.value)}
                 className="w-full rounded p-2 text-sm"
               />
             </div>
           </div>
+
           <button
             type="submit"
             disabled={granting || !newDocAddress}
@@ -154,58 +223,150 @@ export default function AccessManager({ contract, address }) {
         </form>
       )}
 
-      {grants.length === 0 ? (
-        <p className="text-secondary text-sm">
-          No one currently has access to your records.
-        </p>
-      ) : (
-        <div className="space-y-4">
-          {grants.map((grant, idx) => {
-            const status = getStatus(grant);
-            const isActive = status.text === "Active";
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h4 className="text-sm font-bold uppercase tracking-[0.15em] text-eth-yellow">
+            Incoming Requests
+          </h4>
+          <button onClick={fetchAccessData} className="text-xs btn-ghost">
+            Refresh
+          </button>
+        </div>
 
-            return (
-              <div
-                key={idx}
-                className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-lg border border-slate-300"
-              >
-                <div className="mb-3 sm:mb-0">
-                  <div className="flex items-center gap-2 mb-1">
+        {pendingRequests.length === 0 ? (
+          <p className="text-secondary text-sm">
+            No pending doctor requests right now.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {pendingRequests.map((request, index) => {
+              const requestKey = `${request.doctor}-${request.category}-${index}`;
+              const color = CATEGORY_COLORS[request.category] || "#ccc";
+              const isApproving =
+                requestActionKey ===
+                `${request.doctor}-${request.category}-approve`;
+              const isDeclining =
+                requestActionKey ===
+                `${request.doctor}-${request.category}-decline`;
+
+              return (
+                <div
+                  key={requestKey}
+                  className="bg-slate-50 dark:bg-dark-surface p-4 rounded-lg border dark:border-dark-border border-slate-300 space-y-3"
+                >
+                  <div className="flex items-center gap-2">
                     <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          CATEGORY_COLORS[grant.category] || "#ccc",
-                      }}
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: color }}
                     />
                     <span className="font-medium text-sm">
-                      {CATEGORY_LABELS[grant.category]}
+                      {CATEGORY_LABELS[request.category]}
                     </span>
                   </div>
-                  <p
-                    className="text-xs font-mono text-slate-500 mb-1 truncate max-w-[200px]"
-                    title={grant.doctor}
-                  >
-                    Doc: {grant.doctor.substring(0, 8)}...
-                  </p>
-                  <p className={`text-xs font-semibold ${status.color}`}>
-                    {status.text}
-                  </p>
-                </div>
 
-                {isActive && (
-                  <button
-                    onClick={() => handleRevoke(grant.doctor, grant.category)}
-                    className="btn-danger text-xs px-3 py-1.5"
-                  >
-                    Revoke Now
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  <div className="space-y-1 text-xs text-secondary">
+                    <p className="font-mono" title={request.doctor}>
+                      Doctor: {truncateAddress(request.doctor)}
+                    </p>
+                    <p>Requested for {Number(request.requestedDurationHours)} hours</p>
+                    <p>Requested at {formatDate(request.requestedAt)}</p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() =>
+                        handleRequestResponse(
+                          request.doctor,
+                          request.category,
+                          true,
+                        )
+                      }
+                      disabled={isApproving || isDeclining}
+                      className="flex-1 btn-primary disabled:opacity-50"
+                    >
+                      {isApproving
+                        ? "Approving..."
+                        : `Accept ${Number(request.requestedDurationHours)}h`}
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleRequestResponse(
+                          request.doctor,
+                          request.category,
+                          false,
+                        )
+                      }
+                      disabled={isApproving || isDeclining}
+                      className="flex-1 btn-danger disabled:opacity-50"
+                    >
+                      {isDeclining ? "Declining..." : "Decline"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-sm font-bold uppercase tracking-[0.15em] text-eth-green">
+          Active And Past Grants
+        </h4>
+
+        {grants.length === 0 ? (
+          <p className="text-secondary text-sm">
+            No one currently has access to your records.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {grants.map((grant, index) => {
+              const status = getGrantStatus(grant);
+              const isActive = status.text === "Active";
+
+              return (
+                <div
+                  key={`${grant.doctor}-${grant.category}-${index}`}
+                  className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-lg border border-slate-300"
+                >
+                  <div className="mb-3 sm:mb-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          backgroundColor:
+                            CATEGORY_COLORS[grant.category] || "#ccc",
+                        }}
+                      />
+                      <span className="font-medium text-sm">
+                        {CATEGORY_LABELS[grant.category]}
+                      </span>
+                    </div>
+                    <p
+                      className="text-xs font-mono text-slate-500 mb-1 truncate max-w-[220px]"
+                      title={grant.doctor}
+                    >
+                      Doc: {truncateAddress(grant.doctor)}
+                    </p>
+                    <p className={`text-xs font-semibold ${status.color}`}>
+                      {status.text}
+                    </p>
+                  </div>
+
+                  {isActive && (
+                    <button
+                      onClick={() => handleRevoke(grant.doctor, grant.category)}
+                      className="btn-danger text-xs px-3 py-1.5"
+                    >
+                      Revoke Now
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
