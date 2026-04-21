@@ -101,3 +101,21 @@ body:not(.dark) textarea:focus,
 body:not(.dark) select:focus {
   @apply border-eth-green;
 }
+
+.doctor-qr-reader-shell {
+  @apply rounded-xl border border-dark-border bg-dark-surface/70 p-4 text-left;
+}
+
+body:not(.dark) .doctor-qr-reader-shell {
+  @apply border-slate-200 bg-slate-50;
+}
+
+.doctor-qr-reader-shell video,
+.doctor-qr-reader-shell img,
+.doctor-qr-reader-shell canvas {
+  @apply rounded-lg;
+}
+
+.doctor-qr-reader-shell a {
+  @apply text-eth-yellow;
+}
