@@ -1,166 +1,271 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import WalletConnect from "./components/WalletConnect";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
-function App() {
-  const [role, setRole] = useState("patient"); // 'patient' or 'doctor'
-  const [walletState, setWalletState] = useState(null); // { provider, signer, address, contract }
-  const [darkMode, setDarkMode] = useState(true); // Dark mode default
 
-  // Auto-refresh the app if user switches MetaMask accounts
+const THEME_STORAGE_KEY = "netsanet-theme";
+
+const ROLE_OPTIONS = [
+  {
+    id: "patient",
+    title: "Patient",
+    subtitle: "Own your encrypted timeline",
+    accentClassName:
+      "bg-gradient-to-br from-eth-green to-teal-500 text-white shadow-lg shadow-emerald-900/15",
+  },
+  {
+    id: "doctor",
+    title: "Doctor / Clinic",
+    subtitle: "Review with explicit consent",
+    accentClassName:
+      "bg-gradient-to-br from-eth-yellow to-sky-500 text-white shadow-lg shadow-sky-900/15",
+  },
+];
+
+function applyTheme(isDarkMode) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.body.classList.toggle("dark", isDarkMode);
+  document.documentElement.classList.toggle("dark", isDarkMode);
+}
+
+function getInitialDarkMode() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+
+  if (storedTheme === "dark") {
+    return true;
+  }
+
+  if (storedTheme === "light") {
+    return false;
+  }
+
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+}
+
+function formatAddress(address) {
+  if (!address) {
+    return "";
+  }
+
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function App() {
+  const [role, setRole] = useState("patient");
+  const [walletState, setWalletState] = useState(null);
+  const [darkMode, setDarkMode] = useState(() => {
+    const initialDarkMode = getInitialDarkMode();
+    applyTheme(initialDarkMode);
+    return initialDarkMode;
+  });
+
   useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on("accountsChanged", () => {
-        window.location.reload();
-      });
+    if (!window.ethereum) {
+      return undefined;
     }
+
+    const handleAccountsChanged = () => {
+      window.location.reload();
+    };
+
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+
+    return () => {
+      window.ethereum.removeListener?.("accountsChanged", handleAccountsChanged);
+    };
   }, []);
 
-  // Toggle dark/light mode
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    if (darkMode) {
-      document.body.classList.remove("dark");
-      document.documentElement.classList.remove("dark");
-    } else {
-      document.body.classList.add("dark");
-      document.documentElement.classList.add("dark");
-    }
-  };
+  useEffect(() => {
+    applyTheme(darkMode);
+    window.localStorage.setItem(
+      THEME_STORAGE_KEY,
+      darkMode ? "dark" : "light",
+    );
+  }, [darkMode]);
+
+  const activeRole = ROLE_OPTIONS.find((option) => option.id === role);
 
   return (
     <div
-      className={`min-h-screen font-sans transition-colors duration-300 ${darkMode ? "bg-dark-bg text-dark-text" : "bg-slate-50 text-slate-900"}`}
+      className={`app-shell min-h-screen transition-colors duration-500 ${
+        darkMode ? "text-dark-text" : "text-slate-900"
+      }`}
     >
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header containing Logo & Role Toggle */}
-        <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 glass-panel px-6 py-4 rounded-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-eth-green to-eth-yellow flex items-center justify-center shadow-lg pt-1">
-              <span className="text-2xl">🛡️</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-eth-green to-eth-yellow">
-                Netsanet
-              </h1>
-              <p
-                className={`text-[10px] uppercase tracking-widest font-semibold ${darkMode ? "text-dark-muted" : "text-slate-500"}`}
-              >
-                Patient-Owned Medical Records
-              </p>
-            </div>
-          </div>
-
-          {/* Role Toggle Switch */}
-          <div
-            className={`flex shadow-sm p-1 rounded-lg border ${darkMode ? "bg-dark-surface border-dark-border" : "bg-white border-slate-200"}`}
-          >
-            <button
-              onClick={() => setRole("patient")}
-              className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${
-                role === "patient"
-                  ? `${darkMode ? "bg-dark-card text-eth-green shadow-lg" : "bg-white text-eth-green shadow-md"}`
-                  : `${darkMode ? "text-dark-muted hover:text-dark-text" : "text-slate-500 hover:text-slate-900"}`
-              }`}
-            >
-              Patient
-            </button>
-            <button
-              onClick={() => setRole("doctor")}
-              className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${
-                role === "doctor"
-                  ? `${darkMode ? "bg-dark-card text-eth-yellow shadow-lg" : "bg-white text-eth-yellow shadow-md"}`
-                  : `${darkMode ? "text-dark-muted hover:text-dark-text" : "text-slate-500 hover:text-slate-900"}`
-              }`}
-            >
-              Doctor / Clinic
-            </button>
-          </div>
-
-          {/* Dark Mode Toggle & Wallet Status */}
-          <div className="flex items-center gap-4">
-            {/* Dark/Light Mode Toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-all hover:scale-105 ${
-                darkMode
-                  ? "bg-dark-surface text-dark-text hover:bg-slate-600"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-              title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {darkMode ? (
-                <>
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Light</span>
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
-                  <span>Dark</span>
-                </>
-              )}
-            </button>
-
-            {/* Wallet Status indicator */}
-            {walletState && (
-              <div
-                className={`flex items-center gap-4 shadow-sm px-4 py-1.5 rounded-full border ${darkMode ? "bg-dark-surface border-dark-border" : "bg-white border-slate-200"}`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-eth-green animate-pulse"></span>
-                  <span
-                    className={`text-xs font-mono ${darkMode ? "text-dark-muted" : "text-slate-500"}`}
-                  >
-                    {walletState.address.substring(0, 6)}...
-                    {walletState.address.substring(38)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setWalletState(null);
-                    setRole("patient");
-                  }}
-                  className={`text-xs bg-transparent shadow-none p-0 ml-2 transition-colors ${
-                    darkMode
-                      ? "text-red-400 hover:text-red-300"
-                      : "text-red-500 hover:text-red-700"
-                  }`}
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <header className="glass-panel mb-8 px-5 py-5 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-1 items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-eth-green via-teal-500 to-eth-yellow text-white shadow-lg shadow-sky-950/25">
+                <svg
+                  className="h-7 w-7"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  Disconnect
-                </button>
+                  <path d="M12 3l7 3v5c0 5-3.2 8.8-7 10-3.8-1.2-7-5-7-10V6l7-3z" />
+                  <path d="M9.75 12h4.5" />
+                  <path d="M12 9.75v4.5" />
+                </svg>
               </div>
-            )}
+
+              <div className="space-y-3">
+                <p className="section-kicker">Patient-owned medical records</p>
+                <div className="space-y-2">
+                  <h1 className="font-display text-3xl font-bold text-gradient sm:text-4xl">
+                    Netsanet
+                  </h1>
+                  <p className="panel-copy max-w-2xl">
+                    A cleaner workspace for private record sharing, patient
+                    consent, and clinic collaboration without losing the simple
+                    structure you already built.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex w-full flex-col gap-4 xl:max-w-[620px]">
+              <div className="glass-inset flex flex-col gap-2 p-2 sm:flex-row">
+                {ROLE_OPTIONS.map((option) => {
+                  const isActive = role === option.id;
+
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setRole(option.id)}
+                      className={`group flex-1 rounded-[20px] px-4 py-3 text-left ${
+                        isActive
+                          ? option.accentClassName
+                          : "bg-transparent text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`flex h-11 w-11 items-center justify-center rounded-2xl border text-[0.68rem] font-display font-semibold uppercase tracking-[0.28em] ${
+                            isActive
+                              ? "border-white/25 bg-white/15 text-white"
+                              : "border-slate-300/70 bg-white/60 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                          }`}
+                        >
+                          {option.id === "patient" ? "PT" : "DR"}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold">
+                            {option.title}
+                          </span>
+                          <span
+                            className={`block text-xs ${
+                              isActive
+                                ? "text-white/80"
+                                : "text-slate-500 dark:text-slate-400"
+                            }`}
+                          >
+                            {option.subtitle}
+                          </span>
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="panel-copy">
+                  <span className="font-semibold">
+                    {activeRole?.title ?? "Patient"} workspace
+                  </span>{" "}
+                  is active. The dashboard layout stays the same while the
+                  controls and permissions shift to match the role.
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => setDarkMode((current) => !current)}
+                    className="btn-ghost shrink-0 px-4 py-3 text-sm"
+                    title={
+                      darkMode ? "Switch to light mode" : "Switch to dark mode"
+                    }
+                  >
+                    {darkMode ? (
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2.5v2.2" />
+                        <path d="M12 19.3v2.2" />
+                        <path d="M4.9 4.9l1.6 1.6" />
+                        <path d="M17.5 17.5l1.6 1.6" />
+                        <path d="M2.5 12h2.2" />
+                        <path d="M19.3 12h2.2" />
+                        <path d="M4.9 19.1l1.6-1.6" />
+                        <path d="M17.5 6.5l1.6-1.6" />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 12.8A8.5 8.5 0 1111.2 3 6.5 6.5 0 0021 12.8z" />
+                      </svg>
+                    )}
+                    <span>{darkMode ? "Light mode" : "Dark mode"}</span>
+                  </button>
+
+                  {walletState ? (
+                    <div className="glass-inset flex items-center gap-3 rounded-full px-3 py-2">
+                      <span className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-100">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.8)]" />
+                        {formatAddress(walletState.address)}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setWalletState(null);
+                          setRole("patient");
+                        }}
+                        className="text-xs font-semibold text-rose-500 transition-colors hover:text-rose-400"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="surface-chip">Wallet not connected</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 
-        {/* Content Body */}
         <main>
           {!walletState ? (
-            // User must connect their MetaMask first
             <WalletConnect onConnect={(state) => setWalletState(state)} />
           ) : (
-            // Connected: Render both to preserve state, hide via CSS based on toggle
             <>
               <div style={{ display: role === "patient" ? "block" : "none" }}>
                 <PatientDashboard
-                  provider={walletState.provider}
                   signer={walletState.signer}
                   address={walletState.address}
                   contract={walletState.contract}
@@ -168,7 +273,6 @@ function App() {
               </div>
               <div style={{ display: role === "doctor" ? "block" : "none" }}>
                 <DoctorDashboard
-                  provider={walletState.provider}
                   signer={walletState.signer}
                   address={walletState.address}
                   contract={walletState.contract}

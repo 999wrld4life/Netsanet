@@ -5,16 +5,19 @@ export default function PatientRegistration({ contract, onRegistered }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!name.trim()) {
+      return;
+    }
 
     try {
       setLoading(true);
       setError("");
 
       const tx = await contract.registerPatient(name);
-      await tx.wait(); // Wait for confirmation
+      await tx.wait();
 
       onRegistered(name);
     } catch (err) {
@@ -28,32 +31,36 @@ export default function PatientRegistration({ contract, onRegistered }) {
   };
 
   return (
-    <div className="glass-panel p-6 rounded-xl mt-6 border-eth-green border-t-4">
-      <h2 className="text-xl font-bold mb-4">Register as a New Patient</h2>
-      <p className="text-sm text-secondary dark:text-dark-muted mb-6">
+    <div className="glass-panel mt-6 px-6 py-7 sm:px-8">
+      <p className="section-kicker">Patient onboarding</p>
+      <h2 className="mt-3 font-display text-2xl font-bold text-slate-900 dark:text-slate-50">
+        Register as a new patient
+      </h2>
+      <p className="panel-copy mt-3 max-w-2xl">
         Create your digital medical identity. Your real medical data will be
         encrypted and stored separately.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
         <div>
-          <label className="block text-sm text-secondary mb-1">Full Name</label>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Full name
+          </label>
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Selam Tadesse"
-            className="w-full rounded-lg p-3 focus:outline-none focus:border-eth-green"
             required
           />
         </div>
 
-        {error && <p className="text-error text-sm">{error}</p>}
+        {error && <p className="text-sm text-rose-500">{error}</p>}
 
         <button
           type="submit"
           disabled={loading || !name}
-          className="btn-primary self-start mt-2"
+          className="btn-primary mt-2 self-start disabled:opacity-50"
         >
           {loading
             ? "Registering on Blockchain..."

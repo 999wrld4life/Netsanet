@@ -89,7 +89,10 @@ export default function DoctorQRScanner({ onScan }) {
       try {
         await scanner.clear();
       } catch (clearError) {
-        console.error("Failed to clear QR scanner after a successful scan:", clearError);
+        console.error(
+          "Failed to clear QR scanner after a successful scan:",
+          clearError,
+        );
       }
 
       if (isMounted) {
@@ -126,15 +129,32 @@ export default function DoctorQRScanner({ onScan }) {
   };
 
   return (
-    <div className="glass-panel p-8 rounded-xl border-eth-yellow border-t-4 max-w-2xl mx-auto text-center shadow-xl">
-      <div className="w-16 h-16 rounded-full bg-eth-yellow/20 flex items-center justify-center mx-auto mb-4">
-        <span className="text-lg font-bold tracking-[0.2em] text-eth-yellow">
-          QR
-        </span>
+    <div className="glass-panel mx-auto max-w-3xl px-6 py-7 text-center sm:px-8">
+      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-sky-500/15 to-eth-yellow/20 text-eth-yellow shadow-lg shadow-sky-950/10">
+        <svg
+          className="h-8 w-8"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 4h5v5H4z" />
+          <path d="M15 4h5v5h-5z" />
+          <path d="M4 15h5v5H4z" />
+          <path d="M15 15h2" />
+          <path d="M15 19h2" />
+          <path d="M19 15h1v5h-5v-1" />
+        </svg>
       </div>
 
-      <h2 className="text-2xl font-bold mb-2">Scan Patient Medical ID</h2>
-      <p className="text-dark-muted mb-6 max-w-lg mx-auto">
+      <p className="section-kicker">Patient onboarding</p>
+      <h2 className="mt-3 font-display text-3xl font-bold text-slate-900 dark:text-slate-50">
+        Scan patient medical ID
+      </h2>
+      <p className="panel-copy mx-auto mt-3 mb-6 max-w-2xl">
         Scan the patient's QR code with your webcam, upload a saved photo of the
         QR image, or paste the full Netsanet QR string manually.
       </p>
@@ -143,24 +163,33 @@ export default function DoctorQRScanner({ onScan }) {
         <div id={scannerElementId} />
       </div>
 
-      <p className="text-xs text-dark-muted mb-8 max-w-lg mx-auto">
-        Tip: for a live demo, open the patient QR on your phone and point your
-        PC camera at it. If camera access is unreliable, switch to file scan and
-        upload a saved QR photo instead.
-      </p>
+      <div className="glass-inset mx-auto mb-6 max-w-2xl rounded-[24px] px-4 py-4 text-left">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+          Fallback option
+        </p>
+        <p className="panel-muted mt-1 text-sm">
+          For a live demo, open the patient QR on a phone and point your PC
+          camera at it. If camera access is unreliable, switch to file scan or
+          paste the raw string below.
+        </p>
+      </div>
 
-      <form onSubmit={handleManualSubmit} className="max-w-md mx-auto relative">
+      <form onSubmit={handleManualSubmit} className="mx-auto max-w-lg text-left">
+        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+          Manual connection
+        </label>
         <input
           type="text"
           value={manualInput}
           onChange={(event) => setManualInput(event.target.value)}
           placeholder="netsanet:0x... or 0x..."
-          className="w-full shadow-sm rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-eth-yellow transition-colors"
         />
-        <button type="submit" className="mt-4 w-full btn-secondary">
+
+        {error && <p className="mt-2 text-sm text-rose-500">{error}</p>}
+
+        <button type="submit" className="btn-secondary mt-4 w-full">
           Connect Patient
         </button>
-        {error && <p className="text-error text-xs mt-2">{error}</p>}
       </form>
     </div>
   );

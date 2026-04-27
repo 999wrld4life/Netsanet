@@ -9,23 +9,23 @@ export default function RecordSubmissionForm({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Form State
-  const [category, setCategory] = useState("0"); // default
+  const [category, setCategory] = useState("0");
   const [recordType, setRecordType] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [medication, setMedication] = useState("");
   const [cd4Count, setCd4Count] = useState("");
   const [notes, setNotes] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
     if (!base64Key) {
       setError(
         "Cannot submit record without decrypting the session (missing patient key).",
       );
       return;
     }
+
     if (!recordType) {
       setError("Title/Record Type is required.");
       return;
@@ -36,7 +36,6 @@ export default function RecordSubmissionForm({
       setError("");
 
       const cryptoKey = await importKeyFromBase64(base64Key);
-
       const recordData = {
         diagnosis,
         medication,
@@ -44,7 +43,6 @@ export default function RecordSubmissionForm({
         notes,
       };
 
-      // 1. Encrypt and Upload to IPFS (returns CID)
       const cid = await submitRecord(
         cryptoKey,
         recordData,
@@ -53,13 +51,8 @@ export default function RecordSubmissionForm({
         recordType,
       );
 
-      // Wait, the on-chain call must be made! The submitRecord util only uploads to IPFS.
-      // We must call the smart contract to store the CID.
-      // The parent component should probably pass the 'contract' prop so we can add it.
-      // Or we can invoke an onRecordAdded event with the payload.
       await onRecordAdded(cid, category, recordType);
 
-      // Reset form on success
       setCategory("0");
       setRecordType("");
       setDiagnosis("");
@@ -68,32 +61,40 @@ export default function RecordSubmissionForm({
       setNotes("");
     } catch (err) {
       console.error(err);
-      setError("Failed to submit record: " + err.message);
+      setError(`Failed to submit record: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="glass-panel p-6 rounded-xl border dark:border-dark-border border-slate-200">
-      <h3 className="text-lg font-bold mb-4">Add New Record</h3>
+    <div className="glass-panel px-6 py-7 sm:px-7">
+      <p className="section-kicker">Record authoring</p>
+      <h3 className="mt-3 font-display text-2xl font-bold text-slate-900 dark:text-slate-50">
+        Add a new record
+      </h3>
+      <p className="panel-copy mt-3">
+        Encrypt with the patient's shared session key, upload the payload to
+        IPFS, and write the CID on-chain from this session.
+      </p>
 
       {!base64Key && (
-        <div className="mb-4 p-3 bg-red-900/20 border border-red-900 shadow-sm rounded text-xs text-error">
+        <div className="mt-5 rounded-[20px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-500">
           A patient key is required to encrypt records. Missing key.
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-xs text-secondary mb-1">Category</label>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Category
+          </label>
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full shadow-sm rounded p-2 text-sm focus:border-eth-yellow outline-none"
+            onChange={(event) => setCategory(event.target.value)}
           >
-            {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
-              <option key={val} value={val}>
+            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
                 {label}
               </option>
             ))}
@@ -101,76 +102,77 @@ export default function RecordSubmissionForm({
         </div>
 
         <div>
-          <label className="block text-xs text-secondary mb-1">
-            Record Type / Title *
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Record type / title
           </label>
           <input
             type="text"
             required
             value={recordType}
-            onChange={(e) => setRecordType(e.target.value)}
+            onChange={(event) => setRecordType(event.target.value)}
             placeholder="e.g. CD4 Checkup, MRI Scan..."
-            className="w-full shadow-sm rounded p-2 text-sm focus:border-eth-yellow outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-xs text-secondary mb-1">Diagnosis</label>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Diagnosis
+          </label>
           <textarea
             rows="3"
             value={diagnosis}
-            onChange={(e) => setDiagnosis(e.target.value)}
+            onChange={(event) => setDiagnosis(event.target.value)}
             placeholder="e.g. Type 2 Diabetes"
-            className="w-full shadow-sm rounded p-2 text-sm focus:border-eth-yellow outline-none resize-y min-h-[80px]"
+            className="min-h-[96px] resize-y"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs text-secondary mb-1">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Medication
             </label>
             <textarea
               rows="3"
               value={medication}
-              onChange={(e) => setMedication(e.target.value)}
+              onChange={(event) => setMedication(event.target.value)}
               placeholder="e.g. Metformin 500mg"
-              className="w-full shadow-sm rounded p-2 text-sm focus:border-eth-yellow outline-none resize-y min-h-[80px]"
+              className="min-h-[96px] resize-y"
             />
           </div>
+
           <div>
-            <label className="block text-xs text-secondary mb-1">
-              Vitals / CD4 Count
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Vitals / CD4 count
             </label>
             <textarea
               rows="3"
               value={cd4Count}
-              onChange={(e) => setCd4Count(e.target.value)}
+              onChange={(event) => setCd4Count(event.target.value)}
               placeholder="e.g. 600"
-              className="w-full shadow-sm rounded p-2 text-sm focus:border-eth-yellow outline-none resize-y min-h-[80px]"
+              className="min-h-[96px] resize-y"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs text-secondary mb-1">
-            Doctor's Notes
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Doctor notes
           </label>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(event) => setNotes(event.target.value)}
             rows={3}
             placeholder="Observations, next steps..."
-            className="w-full shadow-sm rounded p-2 text-sm focus:border-eth-yellow outline-none"
           />
         </div>
 
-        {error && <p className="text-error text-xs">{error}</p>}
+        {error && <p className="text-sm text-rose-500">{error}</p>}
 
         <button
           type="submit"
           disabled={loading || !base64Key}
-          className="w-full btn-secondary disabled:opacity-50"
+          className="btn-secondary w-full disabled:opacity-50"
         >
           {loading ? "Encrypting & Storing..." : "Sign & Submit Record"}
         </button>

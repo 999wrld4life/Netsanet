@@ -1,127 +1,213 @@
-import { useState, useEffect } from 'react';
-import { retrieveRecords, CATEGORY_LABELS, CATEGORY_COLORS } from '../utils/records';
+import { useState, useEffect } from "react";
+import {
+  retrieveRecords,
+  CATEGORY_LABELS,
+  CATEGORY_COLORS,
+} from "../utils/records";
 
-export default function MedicalTimeline({ contract, address, encryptionKey }) {
+function formatRecordDate(timestamp) {
+  return new Date(timestamp).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function truncateAddress(address) {
+  return `${address.substring(0, 6)}...${address.substring(38)}`;
+}
+
+export default function MedicalTimeline({ contract, encryptionKey }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchAndDecryptRecords = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      // Fetch CIDs and metadata from blockchain
-      const chainRecords = await contract.getMyRecords();
-      
-      if (chainRecords.length === 0) {
-        setRecords([]);
-        return;
-      }
-
-      // Map blockchain data
-      const cids = chainRecords.map(r => r.ipfsCID);
-      
-      // Decrypt all from IPFS
-      const decryptedResults = await retrieveRecords(encryptionKey, cids);
-      
-      // Combine chain metadata with decrypted payload
-      const combined = chainRecords.map((chainRec, idx) => ({
-        timestamp: Number(chainRec.timestamp) * 1000, // convert to ms
-        addedByClinic: chainRec.addedByClinic,
-        category: Number(chainRec.category),
-        recordType: chainRec.recordType,
-        payload: decryptedResults[idx].success ? decryptedResults[idx].data : null,
-        error: !decryptedResults[idx].success ? decryptedResults[idx].error : null
-      }));
-
-      // Sort newest first
-      combined.sort((a, b) => b.timestamp - a.timestamp);
-      setRecords(combined);
-      
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load records from the blockchain.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (contract && encryptionKey) {
-      fetchAndDecryptRecords();
+    if (!contract || !encryptionKey) {
+      return undefined;
     }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const chainRecords = await contract.getMyRecords();
+
+        if (chainRecords.length === 0) {
+          if (!cancelled) {
+            setRecords([]);
+          }
+          return;
+        }
+
+        const cids = chainRecords.map((record) => record.ipfsCID);
+        const decryptedResults = await retrieveRecords(encryptionKey, cids);
+
+        if (cancelled) {
+          return;
+        }
+
+        const combined = chainRecords.map((chainRecord, index) => ({
+          timestamp: Number(chainRecord.timestamp) * 1000,
+          addedByClinic: chainRecord.addedByClinic,
+          category: Number(chainRecord.category),
+          recordType: chainRecord.recordType,
+          payload: decryptedResults[index].success
+            ? decryptedResults[index].data
+            : null,
+          error: !decryptedResults[index].success
+            ? decryptedResults[index].error
+            : null,
+        }));
+
+        combined.sort((a, b) => b.timestamp - a.timestamp);
+        setRecords(combined);
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          setError("Failed to load records from the blockchain.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [contract, encryptionKey]);
 
-  if (loading) return <div className="animate-pulse p-4 text-center">Decrypting your medical history...</div>;
-  if (error) return <div className="text-error p-4">{error}</div>;
+  if (loading) {
+    return (
+      <div className="glass-panel p-6 text-center text-slate-500 dark:text-slate-300">
+        Decrypting your medical history...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="glass-panel p-6 text-sm text-rose-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <div className="glass-panel p-6 rounded-xl border border-slate-200">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-bold">Your Medical Timeline</h3>
-        <span className="text-sm text-secondary bg-slate-50 px-3 py-1 rounded-full">
-          {records.length} {records.length === 1 ? 'Record' : 'Records'}
+    <div className="glass-panel px-6 py-7 sm:px-7">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="section-kicker">Encrypted timeline</p>
+          <h3 className="mt-3 font-display text-2xl font-bold text-slate-900 dark:text-slate-50">
+            Your medical timeline
+          </h3>
+          <p className="panel-copy mt-2">
+            Each entry here was encrypted before upload, then decrypted locally
+            with your wallet-derived key.
+          </p>
+        </div>
+        <span className="surface-chip">
+          {records.length} {records.length === 1 ? "record" : "records"}
         </span>
       </div>
 
       {records.length === 0 ? (
-        <div className="text-center py-10 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-          <p className="text-slate-500">Your history is completely empty.</p>
-          <p className="text-sm text-secondary mt-2">Share your QR code with a clinic to start building your record.</p>
+        <div className="empty-state mt-6">
+          <p className="text-base font-semibold text-slate-900 dark:text-slate-50">
+            Your history is empty.
+          </p>
+          <p className="panel-muted mt-2">
+            Share your QR code with a clinic to start building your record.
+          </p>
         </div>
       ) : (
-        <div className="relative border-l-2 border-slate-300 ml-4 space-y-8">
-          {records.map((rec, idx) => {
-            const hasData = !!rec.payload;
-            const date = new Date(rec.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-            
-            return (
-              <div key={idx} className="relative pl-6">
-                {/* Timeline Dot */}
-                <div 
-                  className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-bg-dark"
-                  style={{ backgroundColor: CATEGORY_COLORS[rec.category] || '#fff' }}
-                />
-                
-                {/* Content Card */}
-                <div className="bg-slate-50 rounded-lg p-5 border border-slate-300 hover:border-gray-500 transition-colors">
-                  <div className="flex flex-wrap justify-between items-baseline mb-2 gap-2">
-                    <span 
-                      className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-sm text-slate-900"
-                      style={{ backgroundColor: CATEGORY_COLORS[rec.category] || '#ccc' }}
-                    >
-                      {CATEGORY_LABELS[rec.category]}
-                    </span>
-                    <span className="text-sm text-slate-500">{date}</span>
-                  </div>
-                  
-                  <h4 className="text-lg font-semibold mb-1 text-primary">{rec.recordType}</h4>
-                  <p className="text-xs font-mono text-slate-500 mb-4 truncate" title={rec.addedByClinic}>
-                    Added by: {rec.addedByClinic.substring(0,6)}...{rec.addedByClinic.substring(38)}
-                  </p>
+        <div className="timeline-track mt-6 space-y-6 pl-7">
+          {records.map((record, index) => {
+            const details = [
+              {
+                label: "Diagnosis",
+                value: record.payload?.data?.diagnosis,
+              },
+              {
+                label: "Medication",
+                value: record.payload?.data?.medication,
+              },
+              {
+                label: "CD4 Count",
+                value: record.payload?.data?.cd4Count,
+              },
+            ].filter((item) => item.value);
 
-                  {/* Decrypted Payload */}
-                  {hasData ? (
-                    <div className="bg-white shadow-sm p-4 rounded-md border border-slate-200 text-sm">
-                      {rec.payload.data?.diagnosis && (
-                        <p className="mb-2"><span className="text-secondary">Diagnosis:</span> {rec.payload.data.diagnosis}</p>
-                      )}
-                      {rec.payload.data?.medication && (
-                        <p className="mb-2"><span className="text-secondary">Medication:</span> {rec.payload.data.medication}</p>
-                      )}
-                      {rec.payload.data?.cd4Count && (
-                        <p className="mb-2"><span className="text-secondary">CD4 Count:</span> {rec.payload.data.cd4Count}</p>
-                      )}
-                      {rec.payload.data?.notes && (
-                        <p className="italic text-slate-500 mt-3 pt-3 border-t border-slate-200">
-                          "{rec.payload.data.notes}"
-                        </p>
+            return (
+              <div key={index} className="relative pl-5">
+                <span
+                  className="absolute left-[-0.17rem] top-6 h-4 w-4 rounded-full border-4 border-white dark:border-slate-950"
+                  style={{
+                    backgroundColor: CATEGORY_COLORS[record.category] || "#fff",
+                  }}
+                />
+
+                <div className="timeline-card">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <span
+                        className="inline-flex rounded-full px-3 py-1 text-xs font-semibold text-white"
+                        style={{
+                          backgroundColor:
+                            CATEGORY_COLORS[record.category] || "#94a3b8",
+                        }}
+                      >
+                        {CATEGORY_LABELS[record.category]}
+                      </span>
+                      <h4 className="mt-4 font-display text-xl font-bold text-slate-900 dark:text-slate-50">
+                        {record.recordType}
+                      </h4>
+                      <p
+                        className="mt-2 font-mono text-xs text-slate-500 dark:text-slate-300"
+                        title={record.addedByClinic}
+                      >
+                        Added by {truncateAddress(record.addedByClinic)}
+                      </p>
+                    </div>
+
+                    <span className="surface-chip">
+                      {formatRecordDate(record.timestamp)}
+                    </span>
+                  </div>
+
+                  {record.payload ? (
+                    <div className="timeline-payload mt-5 space-y-3">
+                      {details.map((detail) => (
+                        <div key={detail.label}>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            {detail.label}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-700 dark:text-slate-100">
+                            {detail.value}
+                          </p>
+                        </div>
+                      ))}
+
+                      {record.payload.data?.notes && (
+                        <div className="border-t border-slate-300/70 pt-3 dark:border-white/10">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            Notes
+                          </p>
+                          <p className="mt-2 text-sm italic text-slate-600 dark:text-slate-200">
+                            "{record.payload.data.notes}"
+                          </p>
+                        </div>
                       )}
                     </div>
                   ) : (
-                    <div className="text-error text-sm p-3 bg-red-900/20 rounded">
-                      ⚠️ Decryption failed or IPFS CID unavailable. ({rec.error})
+                    <div className="mt-5 rounded-[18px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-500">
+                      Decryption failed or the IPFS CID is unavailable. (
+                      {record.error})
                     </div>
                   )}
                 </div>
