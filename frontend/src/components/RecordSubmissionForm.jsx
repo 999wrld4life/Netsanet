@@ -1,6 +1,17 @@
-import { useState } from "react";
-import { submitRecord, CATEGORY_LABELS } from "../utils/records";
+import { useEffect, useState } from "react";
+import {
+  submitRecord,
+  CATEGORY_LABELS,
+  getCategoryFieldSchema,
+} from "../utils/records";
 import { importKeyFromBase64 } from "../utils/encryption";
+
+function createEmptyFieldState(category) {
+  return getCategoryFieldSchema(category).reduce((accumulator, field) => {
+    accumulator[field.key] = "";
+    return accumulator;
+  }, {});
+}
 
 export default function RecordSubmissionForm({
   patientAddress,
@@ -11,10 +22,21 @@ export default function RecordSubmissionForm({
   const [error, setError] = useState("");
   const [category, setCategory] = useState("0");
   const [recordType, setRecordType] = useState("");
-  const [diagnosis, setDiagnosis] = useState("");
-  const [medication, setMedication] = useState("");
-  const [cd4Count, setCd4Count] = useState("");
-  const [notes, setNotes] = useState("");
+  const [formValues, setFormValues] = useState(() => createEmptyFieldState("0"));
+
+  const categoryFields = getCategoryFieldSchema(category);
+
+  useEffect(() => {
+    setFormValues(createEmptyFieldState(category));
+    setError("");
+  }, [category]);
+
+  const handleFieldChange = (fieldKey, value) => {
+    setFormValues((current) => ({
+      ...current,
+      [fieldKey]: value,
+    }));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -36,12 +58,9 @@ export default function RecordSubmissionForm({
       setError("");
 
       const cryptoKey = await importKeyFromBase64(base64Key);
-      const recordData = {
-        diagnosis,
-        medication,
-        cd4Count,
-        notes,
-      };
+      const recordData = Object.fromEntries(
+        Object.entries(formValues).filter(([, value]) => value.trim().length > 0),
+      );
 
       const cid = await submitRecord(
         cryptoKey,
@@ -55,10 +74,7 @@ export default function RecordSubmissionForm({
 
       setCategory("0");
       setRecordType("");
-      setDiagnosis("");
-      setMedication("");
-      setCd4Count("");
-      setNotes("");
+      setFormValues(createEmptyFieldState("0"));
     } catch (err) {
       console.error(err);
       setError(`Failed to submit record: ${err.message}`);
@@ -114,57 +130,37 @@ export default function RecordSubmissionForm({
           />
         </div>
 
-        <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-            Diagnosis
-          </label>
-          <textarea
-            rows="3"
-            value={diagnosis}
-            onChange={(event) => setDiagnosis(event.target.value)}
-            placeholder="e.g. Type 2 Diabetes"
-            className="min-h-[96px] resize-y"
-          />
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Medication
-            </label>
-            <textarea
-              rows="3"
-              value={medication}
-              onChange={(event) => setMedication(event.target.value)}
-              placeholder="e.g. Metformin 500mg"
-              className="min-h-[96px] resize-y"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Vitals / CD4 count
-            </label>
-            <textarea
-              rows="3"
-              value={cd4Count}
-              onChange={(event) => setCd4Count(event.target.value)}
-              placeholder="e.g. 600"
-              className="min-h-[96px] resize-y"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-            Doctor notes
-          </label>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={3}
-            placeholder="Observations, next steps..."
-          />
+          {categoryFields.map((field) => (
+            <div
+              key={field.key}
+              className={field.input === "textarea" ? "sm:col-span-2" : ""}
+            >
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                {field.label}
+              </label>
+              {field.input === "textarea" ? (
+                <textarea
+                  rows={field.rows ?? 3}
+                  value={formValues[field.key] ?? ""}
+                  onChange={(event) =>
+                    handleFieldChange(field.key, event.target.value)
+                  }
+                  placeholder={field.placeholder}
+                  className="min-h-[96px] resize-y"
+                />
+              ) : (
+                <input
+                  type={field.input ?? "text"}
+                  value={formValues[field.key] ?? ""}
+                  onChange={(event) =>
+                    handleFieldChange(field.key, event.target.value)
+                  }
+                  placeholder={field.placeholder}
+                />
+              )}
+            </div>
+          ))}
         </div>
 
         {error && <p className="text-sm text-rose-500">{error}</p>}

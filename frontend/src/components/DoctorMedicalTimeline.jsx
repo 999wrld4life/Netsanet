@@ -3,6 +3,8 @@ import {
   retrieveRecords,
   CATEGORY_LABELS,
   CATEGORY_COLORS,
+  buildRecordDisplayFields,
+  formatRecordFieldValue,
 } from "../utils/records";
 import { importKeyFromBase64 } from "../utils/encryption";
 
@@ -182,20 +184,14 @@ export default function DoctorMedicalTimeline({
       ) : (
         <div className="timeline-track mt-6 space-y-6 pl-7">
           {records.map((record, index) => {
-            const details = [
-              {
-                label: "Diagnosis",
-                value: record.payload?.data?.diagnosis,
-              },
-              {
-                label: "Medication",
-                value: record.payload?.data?.medication,
-              },
-              {
-                label: "CD4 / Vital Stat",
-                value: record.payload?.data?.cd4Count,
-              },
-            ].filter((item) => item.value);
+            const details = buildRecordDisplayFields(
+              record.category,
+              record.payload?.data,
+            );
+            const primaryDetails = details.filter(
+              (detail) => detail.key !== "notes",
+            );
+            const noteDetail = details.find((detail) => detail.key === "notes");
 
             return (
               <div key={index} className="relative pl-5">
@@ -239,24 +235,24 @@ export default function DoctorMedicalTimeline({
 
                   {record.payload ? (
                     <div className="timeline-payload mt-5 space-y-3">
-                      {details.map((detail) => (
+                      {primaryDetails.map((detail) => (
                         <div key={detail.label}>
                           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                             {detail.label}
                           </p>
-                          <p className="mt-1 text-sm text-slate-700 dark:text-slate-100">
-                            {detail.value}
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-100">
+                            {formatRecordFieldValue(detail.value)}
                           </p>
                         </div>
                       ))}
 
-                      {record.payload.data?.notes && (
+                      {noteDetail && (
                         <div className="border-t border-slate-300/70 pt-3 dark:border-white/10">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                            Notes
+                            {noteDetail.label}
                           </p>
                           <p className="mt-2 text-sm italic text-slate-600 dark:text-slate-200">
-                            "{record.payload.data.notes}"
+                            "{formatRecordFieldValue(noteDetail.value)}"
                           </p>
                         </div>
                       )}
