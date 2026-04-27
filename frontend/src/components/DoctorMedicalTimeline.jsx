@@ -4,7 +4,9 @@ import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
   buildRecordDisplayFields,
+  extractRecordAuthor,
   formatRecordFieldValue,
+  formatRecordAuthor,
 } from "../utils/records";
 import { importKeyFromBase64 } from "../utils/encryption";
 
@@ -188,6 +190,12 @@ export default function DoctorMedicalTimeline({
               record.category,
               record.payload?.data,
             );
+            const author = extractRecordAuthor(record.payload);
+            const fallbackLabel =
+              record.addedByClinic === doctorAddress
+                ? "You"
+                : truncateAddress(record.addedByClinic);
+            const authorLabel = formatRecordAuthor(author, fallbackLabel);
             const primaryDetails = details.filter(
               (detail) => detail.key !== "notes",
             );
@@ -218,13 +226,10 @@ export default function DoctorMedicalTimeline({
                         {record.recordType}
                       </h4>
                       <p
-                        className="mt-2 font-mono text-xs text-slate-500 dark:text-slate-300"
+                        className="mt-2 text-xs text-slate-500 dark:text-slate-300"
                         title={record.addedByClinic}
                       >
-                        Added by{" "}
-                        {record.addedByClinic === doctorAddress
-                          ? "You"
-                          : truncateAddress(record.addedByClinic)}
+                        Added by {authorLabel}
                       </p>
                     </div>
 

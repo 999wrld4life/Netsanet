@@ -4,7 +4,9 @@ import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
   buildRecordDisplayFields,
+  extractRecordAuthor,
   formatRecordFieldValue,
+  formatRecordAuthor,
 } from "../utils/records";
 
 function formatRecordDate(timestamp) {
@@ -134,6 +136,11 @@ export default function MedicalTimeline({ contract, encryptionKey }) {
               record.category,
               record.payload?.data,
             );
+            const author = extractRecordAuthor(record.payload);
+            const authorLabel = formatRecordAuthor(
+              author,
+              truncateAddress(record.addedByClinic),
+            );
             const primaryDetails = details.filter(
               (detail) => detail.key !== "notes",
             );
@@ -164,10 +171,10 @@ export default function MedicalTimeline({ contract, encryptionKey }) {
                         {record.recordType}
                       </h4>
                       <p
-                        className="mt-2 font-mono text-xs text-slate-500 dark:text-slate-300"
+                        className="mt-2 text-xs text-slate-500 dark:text-slate-300"
                         title={record.addedByClinic}
                       >
-                        Added by {truncateAddress(record.addedByClinic)}
+                        Added by {authorLabel}
                       </p>
                     </div>
 

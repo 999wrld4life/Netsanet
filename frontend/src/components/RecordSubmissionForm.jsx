@@ -20,6 +20,8 @@ export default function RecordSubmissionForm({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [doctorName, setDoctorName] = useState("");
+  const [clinicName, setClinicName] = useState("");
   const [category, setCategory] = useState("0");
   const [recordType, setRecordType] = useState("");
   const [formValues, setFormValues] = useState(() => createEmptyFieldState("0"));
@@ -53,6 +55,16 @@ export default function RecordSubmissionForm({
       return;
     }
 
+    if (!doctorName.trim()) {
+      setError("Doctor name is required.");
+      return;
+    }
+
+    if (!clinicName.trim()) {
+      setError("Clinic or hospital name is required.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
@@ -68,6 +80,10 @@ export default function RecordSubmissionForm({
         patientAddress,
         CATEGORY_LABELS[category],
         recordType,
+        {
+          doctorName,
+          clinicName,
+        },
       );
 
       await onRecordAdded(cid, category, recordType);
@@ -101,6 +117,34 @@ export default function RecordSubmissionForm({
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Doctor Name
+            </label>
+            <input
+              type="text"
+              required
+              value={doctorName}
+              onChange={(event) => setDoctorName(event.target.value)}
+              placeholder="e.g. Dr. Amina Hassan"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Clinic / Hospital
+            </label>
+            <input
+              type="text"
+              required
+              value={clinicName}
+              onChange={(event) => setClinicName(event.target.value)}
+              placeholder="e.g. Tikur Anbessa Specialized Hospital"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
             Category

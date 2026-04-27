@@ -56,6 +56,13 @@ export const CATEGORY_COLORS = {
   6: '#F97316', // orange
 };
 
+const RECORD_DETAIL_EXCLUDED_KEYS = new Set([
+  'doctorName',
+  'clinicName',
+  'doctor',
+  'clinic',
+]);
+
 export const CATEGORY_FIELD_SCHEMAS = {
   0: [
     {
@@ -427,7 +434,12 @@ export function buildRecordDisplayFields(category, data) {
     .filter((field) => hasDisplayValue(field.value));
 
   const extraFields = Object.entries(data)
-    .filter(([key, value]) => !schemaKeys.has(key) && hasDisplayValue(value))
+    .filter(
+      ([key, value]) =>
+        !schemaKeys.has(key) &&
+        !RECORD_DETAIL_EXCLUDED_KEYS.has(key) &&
+        hasDisplayValue(value)
+    )
     .map(([key, value]) => ({
       key,
       label: humanizeFieldKey(key),
@@ -435,6 +447,37 @@ export function buildRecordDisplayFields(category, data) {
     }));
 
   return [...orderedFields, ...extraFields];
+}
+
+export function extractRecordAuthor(payload) {
+  const author = payload?.author ?? {};
+  const data = payload?.data ?? {};
+
+  const doctorName = (
+    author.doctorName ??
+    data.doctorName ??
+    data.doctor ??
+    ''
+  ).trim();
+
+  const clinicName = (
+    author.clinicName ??
+    data.clinicName ??
+    data.clinic ??
+    ''
+  ).trim();
+
+  return { doctorName, clinicName };
+}
+
+export function formatRecordAuthor(author, fallbackLabel) {
+  const parts = [author.doctorName, author.clinicName].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+
+  return fallbackLabel;
 }
 
 // ─── Submit Record Pipeline ─────────────────────────────────────
@@ -457,7 +500,8 @@ export async function submitRecord(
   recordData,
   patientAddress,
   category,
-  recordType
+  recordType,
+  author = {}
 ) {
   // 1. Add metadata wrapper around the raw medical data
   const envelope = {
@@ -465,6 +509,10 @@ export async function submitRecord(
     createdAt: new Date().toISOString(),
     category,
     recordType,
+    author: {
+      doctorName: author.doctorName?.trim() ?? '',
+      clinicName: author.clinicName?.trim() ?? '',
+    },
     data: recordData,
   };
 
@@ -537,8 +585,6 @@ export async function retrieveRecords(encryptionKey, cids) {
 export async function createDemoRecords(encryptionKey, patientAddress) {
   // HIV Treatment Record — from MSF Bole Clinic
   const hivRecord = {
-    clinic: 'MSF Bole Clinic',
-    doctor: 'Dr. Amina Hassan',
     diagnosis: 'HIV-1 positive, clinically stable on first-line ART',
     cd4Count: 650,
     viralLoad: 'Undetectable (<50 copies/mL)',
@@ -553,13 +599,15 @@ export async function createDemoRecords(encryptionKey, patientAddress) {
     hivRecord,
     patientAddress,
     'HIV_TREATMENT',
-    'CD4 Count & Viral Load Report'
+    'CD4 Count & Viral Load Report',
+    {
+      doctorName: 'Dr. Amina Hassan',
+      clinicName: 'MSF Bole Clinic',
+    }
   );
 
   // Mental Health Record — from private therapist
   const mentalHealthRecord = {
-    clinic: 'Private Practice — Dr. Bekele',
-    doctor: 'Dr. Yohannes Bekele',
     diagnosis: 'Generalized Anxiety Disorder (GAD), currently managed',
     medication: 'Sertraline 50mg daily',
     sessionNotes: 'Patient reports improved coping strategies. Anxiety triggers related to clinic transitions discussed. Recommended continued weekly sessions.',
@@ -573,7 +621,11 @@ export async function createDemoRecords(encryptionKey, patientAddress) {
     mentalHealthRecord,
     patientAddress,
     'MENTAL_HEALTH',
-    'Counseling Session Notes'
+    'Counseling Session Notes',
+    {
+      doctorName: 'Dr. Yohannes Bekele',
+      clinicName: 'Private Practice - Dr. Bekele',
+    }
   );
 
   return { hivCID, mentalHealthCID };
