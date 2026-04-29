@@ -325,39 +325,67 @@ export default function AccessManager({ contract, address }) {
                   key={requestKey}
                   className="glass-inset rounded-[24px] p-4 sm:p-5"
                 >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span
+                        className="inline-flex rounded-full px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-50"
+                        style={{
+                          backgroundColor: `${color}1f`,
+                          border: `1px solid ${color}44`,
+                        }}
+                      >
+                        {CATEGORY_LABELS[request.category]}
+                      </span>
+                      <span className="surface-chip">Pending request</span>
+                    </div>
+
                     <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: color }}
-                        />
-                        <span
-                          className="inline-flex rounded-full px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-50"
-                          style={{
-                            backgroundColor: `${color}1f`,
-                            border: `1px solid ${color}44`,
-                          }}
+                      <div className="mx-auto w-full max-w-md rounded-[20px] border border-slate-300/20 bg-white/5 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                          Doctor Wallet
+                        </p>
+                        <p
+                          className="mt-2 break-all font-mono text-xs leading-6 text-slate-700 dark:text-slate-200"
+                          title={request.doctor}
                         >
-                          {CATEGORY_LABELS[request.category]}
-                        </span>
+                          {request.doctor}
+                        </p>
                       </div>
 
-                      <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
-                        <p className="font-mono text-xs" title={request.doctor}>
-                          Doctor: {truncateAddress(request.doctor)}
-                        </p>
-                        <p className="panel-muted">
-                          Requested for{" "}
-                          {Number(request.requestedDurationHours)} hours
-                        </p>
-                        <p className="panel-muted">
-                          Requested at {formatDate(request.requestedAt)}
-                        </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-[20px] border border-slate-300/20 bg-white/5 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            Requested Duration
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
+                            {Number(request.requestedDurationHours)} hours
+                          </p>
+                        </div>
+
+                        <div className="rounded-[20px] border border-slate-300/20 bg-white/5 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            Requested At
+                          </p>
+                          <p className="mt-2 break-words text-sm leading-6 text-slate-700 dark:text-slate-200">
+                            {formatDate(request.requestedAt)}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[240px]">
+                    <div className="rounded-[20px] border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-sm text-slate-700 dark:border-sky-400/20 dark:bg-sky-400/[0.05] dark:text-slate-200">
+                      You are approving access only for{" "}
+                      <span className="font-semibold text-slate-900 dark:text-slate-50">
+                        {CATEGORY_LABELS[request.category]}
+                      </span>
+                      .
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <button
                         onClick={() =>
                           handleRequestResponse(
@@ -367,7 +395,7 @@ export default function AccessManager({ contract, address }) {
                           )
                         }
                         disabled={isApproving || isDeclining}
-                        className="btn-primary w-full disabled:opacity-50"
+                        className="btn-primary w-full sm:flex-1 disabled:opacity-50"
                       >
                         {isApproving
                           ? "Approving..."
@@ -382,7 +410,7 @@ export default function AccessManager({ contract, address }) {
                           )
                         }
                         disabled={isApproving || isDeclining}
-                        className="btn-danger w-full disabled:opacity-50"
+                        className="btn-danger w-full sm:flex-1 disabled:opacity-50"
                       >
                         {isDeclining ? "Declining..." : "Decline"}
                       </button>

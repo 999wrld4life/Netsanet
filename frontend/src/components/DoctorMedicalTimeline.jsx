@@ -142,8 +142,25 @@ export default function DoctorMedicalTimeline({
 
   if (loading) {
     return (
-      <div className="glass-panel p-6 text-center text-slate-500 dark:text-slate-300">
-        Fetching authorized medical history...
+      <div className="glass-panel px-6 py-10 sm:px-7">
+        <div className="mx-auto flex max-w-md flex-col items-center text-center">
+          <div className="relative flex h-16 w-16 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-sky-500/15 blur-md dark:bg-sky-400/20" />
+            <span className="absolute h-16 w-16 animate-pulse rounded-full border border-sky-500/30 dark:border-sky-400/30" />
+            <span className="h-12 w-12 animate-spin rounded-full border-4 border-sky-500/20 border-t-sky-500 dark:border-sky-400/20 dark:border-t-sky-300" />
+          </div>
+
+          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.28em] text-sky-700 dark:text-sky-300">
+            Authorized sync
+          </p>
+          <h4 className="mt-3 font-display text-xl font-bold text-slate-900 dark:text-slate-50">
+            Fetching patient history...
+          </h4>
+          <p className="panel-copy mt-3 animate-pulse">
+            Checking granted categories, reading record pointers, and decrypting
+            any history this clinic session is allowed to see.
+          </p>
+        </div>
       </div>
     );
   }
